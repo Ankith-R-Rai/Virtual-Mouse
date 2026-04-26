@@ -1,0 +1,23 @@
+# Gesture and Voice Controlled Virtual Mouse
+# Python 3.9+ required
+
+# Core vision and hand tracking
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+
+# Mouse / keyboard automation
+pyautogui>=0.9.54
+
+# Numerical computation
+numpy>=1.24.0
+
+# Voice recognition (M4)
+SpeechRecognition>=3.10.0
+pyaudio>=0.2.13          # microphone input backend
+
+# Active window detection (M4 context profiles)
+pygetwindow>=0.0.9       # Windows / macOS
+# python-xlib>=0.33      # uncomment on Linux
+
+# Optional: high-level Kalman filter (M2 prototyping only)
+# pykalman>=0.9.7
