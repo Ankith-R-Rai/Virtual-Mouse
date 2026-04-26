@@ -201,46 +201,46 @@ class VoiceContextModule:
         self._last_voice_text = "Listening…"
         print("[M4] Listening for voice commands…")
 
-        while self._voice_running:
-            try:
-                with mic as source:
+        with mic as source:
+            while self._voice_running:
+                try:
                     # timeout=3   : give up waiting for speech after 3 s
                     # phrase_time_limit=4 : max utterance length
                     audio = recognizer.listen(
                         source, timeout=3, phrase_time_limit=4,
                     )
 
-                # ---- Try online recognition --------------------------
-                try:
-                    text = recognizer.recognize_google(audio).lower().strip()
-                except sr.UnknownValueError:
-                    # Google heard audio but could not decode speech.
-                    continue
-                except sr.RequestError:
-                    # Network unavailable — try offline Sphinx fallback.
+                    # ---- Try online recognition --------------------------
                     try:
-                        text = recognizer.recognize_sphinx(audio).lower().strip()
-                    except Exception:
+                        text = recognizer.recognize_google(audio).lower().strip()
+                    except sr.UnknownValueError:
+                        # Google heard audio but could not decode speech.
+                        continue
+                    except sr.RequestError:
+                        # Network unavailable — try offline Sphinx fallback.
+                        try:
+                            text = recognizer.recognize_sphinx(audio).lower().strip()
+                        except Exception:
+                            continue
+
+                    if not text:
                         continue
 
-                if not text:
+                    print(f"[M4] Recognised: '{text}'")
+                    self._last_voice_text = f"'{text}'"
+
+                    # ---- Match against command dictionary ----------------
+                    for phrase, action in config.VOICE_COMMANDS.items():
+                        if phrase in text:
+                            self._cmd_queue.put(action)
+                            break   # one command per utterance
+
+                except sr.WaitTimeoutError:
+                    # No speech in the 3-second window — loop and try again.
                     continue
-
-                print(f"[M4] Recognised: '{text}'")
-                self._last_voice_text = f"'{text}'"
-
-                # ---- Match against command dictionary ----------------
-                for phrase, action in config.VOICE_COMMANDS.items():
-                    if phrase in text:
-                        self._cmd_queue.put(action)
-                        break   # one command per utterance
-
-            except sr.WaitTimeoutError:
-                # No speech in the 3-second window — loop and try again.
-                continue
-            except Exception as exc:
-                print(f"[M4] Voice thread error: {exc}")
-                time.sleep(0.5)
+                except Exception as exc:
+                    print(f"[M4] Voice thread error: {exc}")
+                    time.sleep(0.5)
 
     # ------------------------------------------------------------------
     # Context profile polling
@@ -322,7 +322,8 @@ class VoiceContextModule:
         try:
             # ---- Browser / utility -----------------------------------
             if action == "open_browser":
-                pyautogui.hotkey("ctrl", "t")
+                import webbrowser
+                webbrowser.open("https://google.com")
 
             elif action == "screenshot":
                 path = f"screenshot_{int(time.time())}.png"
@@ -342,12 +343,6 @@ class VoiceContextModule:
             elif action == "whiteboard_off":
                 self._switch_mode("MOUSE", state)
 
-            # ---- Zoom -----------------------------------------------
-            elif action == "zoom_in":
-                pyautogui.hotkey("ctrl", "+")
-
-            elif action == "zoom_out":
-                pyautogui.hotkey("ctrl", "-")
 
             # ---- Scroll speed boost ---------------------------------
             elif action in ("scroll_fast_up", "scroll_fast_down"):

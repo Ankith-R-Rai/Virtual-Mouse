@@ -33,20 +33,20 @@ TRACKING_CONFIDENCE   = 0.5
 # ---------------------------------------------------------------------------
 # Exponential moving-average factor applied in M1 BEFORE Kalman (M2).
 # 0.0 = cursor never moves   |   1.0 = cursor jumps instantly to raw position
-CURSOR_SMOOTHING = 0.5
+CURSOR_SMOOTHING = 0.8
 
 # ---------------------------------------------------------------------------
 # Click detection  (distances measured in frame pixels, e.g. 640×480 space)
 # ---------------------------------------------------------------------------
 LEFT_CLICK_THRESHOLD  = 30   # px  — thumb tip ↔ index tip
 RIGHT_CLICK_THRESHOLD = 40   # px  — index tip ↔ middle tip
-CLICK_COOLDOWN        = 0.30  # seconds between repeated triggers
+CLICK_COOLDOWN        = 0.20  # seconds between repeated triggers
 
 # ---------------------------------------------------------------------------
 # Scroll (M1 basic) — M3 overrides scroll_amount with velocity computation
 # ---------------------------------------------------------------------------
 SCROLL_DEADZONE   = 3     # px  — ignore micro-movements
-SCROLL_FIXED      = 3     # scroll units used by the M1 fallback
+SCROLL_FIXED      = 10    # scroll units used by the M1 fallback
 SCROLL_SENSITIVITY = 0.8  # default multiplier (M4 context profiles override)
 
 # ---------------------------------------------------------------------------
@@ -79,7 +79,7 @@ LM_PINKY_TIP      = 20
 # ---------------------------------------------------------------------------
 # Low  Q → strong smoothing (Parkinson's / tremor mode)
 # High Q → minimal smoothing (normal user)
-KALMAN_PROCESS_NOISE     = 0.01   # Q diagonal value
+KALMAN_PROCESS_NOISE     = 0.1    # Q diagonal value
 KALMAN_MEASUREMENT_NOISE = 0.1    # R diagonal value
 KALMAN_ENABLED_DEFAULT   = True
 
@@ -87,19 +87,19 @@ KALMAN_ENABLED_DEFAULT   = True
 # Velocity-proportional scroll (M3)
 # ---------------------------------------------------------------------------
 VELOCITY_SCROLL_BUFFER_SIZE = 5     # frames kept in rolling wrist-y buffer
-VELOCITY_SCROLL_DEADZONE    = 3     # px delta-y below which scroll is ignored
+VELOCITY_SCROLL_DEADZONE    = 5     # px delta-y below which scroll is ignored
 
 # ---------------------------------------------------------------------------
 # Pinch-to-zoom (M3)
 # ---------------------------------------------------------------------------
-ZOOM_THRESHOLD = 15     # px change in inter-thumb distance to trigger zoom
-ZOOM_COOLDOWN  = 0.40   # seconds
+ZOOM_THRESHOLD = 20     # px change in inter-thumb distance to trigger zoom
+ZOOM_COOLDOWN  = 0.10   # seconds
 
 # ---------------------------------------------------------------------------
 # Air Whiteboard (M3)
 # ---------------------------------------------------------------------------
 WHITEBOARD_THICKNESS   = 3
-WHITEBOARD_ERASE_RADIUS = 30
+WHITEBOARD_ERASE_RADIUS = 60
 WHITEBOARD_ALPHA       = 0.3   # canvas blend weight over webcam frame
 WHITEBOARD_COLORS = [
     (0,   0,   255),  # red
@@ -160,8 +160,6 @@ VOICE_COMMANDS = {
     "disable smooth mode":"toggle_kalman",
     "whiteboard on":      "whiteboard_on",
     "whiteboard off":     "whiteboard_off",
-    "zoom in":            "zoom_in",
-    "zoom out":           "zoom_out",
     "scroll up fast":     "scroll_fast_up",
     "scroll down fast":   "scroll_fast_down",
     "switch to mouse":    "mode_mouse",

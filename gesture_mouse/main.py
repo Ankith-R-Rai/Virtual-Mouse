@@ -168,54 +168,60 @@ def run() -> None:
             # Mirror horizontally — natural interaction
             frame = cv2.flip(frame, 1)
 
-            # ----------------------------------------------------------
-            # 2. Build shared state dict
-            #    Modules read and write fields on this dict each frame.
-            # ----------------------------------------------------------
-            state: dict = {"mode": m5.mode}
+            try:
+                # ----------------------------------------------------------
+                # 2. Build shared state dict
+                #    Modules read and write fields on this dict each frame.
+                # ----------------------------------------------------------
+                state: dict = {"mode": m5.mode}
 
-            # ----------------------------------------------------------
-            # 3. M1 + M2 — hand detection and Kalman-filtered cursor
-            #    (M2 is applied transparently via coord_preprocessor)
-            # ----------------------------------------------------------
-            state = engine.process_frame(frame)
-            state["mode"] = m5.mode   # ensure mode is present after M1 resets it
+                # ----------------------------------------------------------
+                # 3. M1 + M2 — hand detection and Kalman-filtered cursor
+                #    (M2 is applied transparently via coord_preprocessor)
+                # ----------------------------------------------------------
+                state = engine.process_frame(frame, mode=m5.mode)
+                state["mode"] = m5.mode   # ensure mode is present after M1 resets it
 
-            # ----------------------------------------------------------
-            # 4. M3 — novel gesture features
-            # ----------------------------------------------------------
-            state = m3.process(state)
+                # ----------------------------------------------------------
+                # 4. M3 — novel gesture features
+                # ----------------------------------------------------------
+                state = m3.process(state)
 
-            # ----------------------------------------------------------
-            # 5. M4 — drain voice queue + apply context profile
-            # ----------------------------------------------------------
-            state = m4.process_commands(state)
+                # ----------------------------------------------------------
+                # 5. M4 — drain voice queue + apply context profile
+                # ----------------------------------------------------------
+                state = m4.process_commands(state)
 
-            # Sync mode back to M5 in case M4 changed it via voice command.
-            m5.mode = state.get("mode", m5.mode)
+                # Sync mode back to M5 in case M4 changed it via voice command.
+                m5.mode = state.get("mode", m5.mode)
 
-            # ----------------------------------------------------------
-            # 6. M5 — render HUD overlay onto frame
-            # ----------------------------------------------------------
-            annotated = m5.render_hud(state)
+                # ----------------------------------------------------------
+                # 6. M5 — render HUD overlay onto frame
+                # ----------------------------------------------------------
+                annotated = m5.render_hud(state)
 
-            # ----------------------------------------------------------
-            # 7. Display
-            # ----------------------------------------------------------
-            cv2.imshow("Gesture & Voice Virtual Mouse", annotated)
+                # ----------------------------------------------------------
+                # 7. Display
+                # ----------------------------------------------------------
+                cv2.imshow("Gesture & Voice Virtual Mouse", annotated)
 
-            # ----------------------------------------------------------
-            # 8. Keyboard input
-            # ----------------------------------------------------------
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord("q"):
-                print("[main] Quit key pressed.")
-                break
-            m5.handle_key(key, state)
+                # ----------------------------------------------------------
+                # 8. Keyboard input
+                # ----------------------------------------------------------
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord("q"):
+                    print("[main] Quit key pressed.")
+                    break
+                m5.handle_key(key, state)
 
-            # Propagate any mode change from keyboard back to M3 / M4.
-            m3.mode = m5.mode
-            m4.mode = m5.mode
+                # Propagate any mode change from keyboard back to M3 / M4.
+                m3.mode = m5.mode
+                m4.mode = m5.mode
+            except Exception as e:
+                print(f"[main] Frame error: {e}")
+                # Ensure we still have a way to quit if things break wildly
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
 
     except KeyboardInterrupt:
         print("\n[main] Interrupted by user (Ctrl-C).")

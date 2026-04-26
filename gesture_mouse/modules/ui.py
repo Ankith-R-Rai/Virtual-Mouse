@@ -41,10 +41,10 @@ import config
 # Gesture guide text shown in the bottom bar per mode
 # ---------------------------------------------------------------------------
 _GESTURE_GUIDE: dict[str, str] = {
-    "MOUSE":      "Move: index tip  |  L-Click: thumb+index pinch  |  R-Click: index+middle pinch  |  Scroll: index+middle up, move wrist",
-    "WHITEBOARD": "Draw: index only  |  Erase: fist  |  Color: thumb+ring pinch  |  Switch: TAB",
-    "ZOOM":       "Show BOTH hands  |  Expand thumbs = Zoom In  |  Contract thumbs = Zoom Out",
-    "VOICE":      "Say: 'open browser'  'take screenshot'  'enable smooth mode'  'zoom in/out'  'whiteboard on/off'",
+    "MOUSE":      "L/R-Click: Right hand  |  Scroll: Move Left Hand Up/Down",
+    "WHITEBOARD": "Draw: Right Index Up | Erase: Right Fist | Color: Right Thumb+Pinky",
+    "ZOOM":       "Hold 2 fingers UP on Left Hand + move hands apart/together",
+    "VOICE":      "Say: 'open browser' | 'take screenshot' | 'whiteboard on/off'",
 }
 
 

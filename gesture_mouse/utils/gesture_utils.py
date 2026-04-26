@@ -75,18 +75,10 @@ def count_fingers_up(landmarks: list) -> list[bool]:
 
 def is_fist(landmarks: list) -> bool:
     """
-    All four fingers curled (thumb state is intentionally ignored so that
-    natural fist and thumbs-up both register as a fist for erase purposes).
+    All fingers folded (0 fingers detected as up).
+    Provides much more reliable fist detection for the erase gesture.
     """
-    for tip_idx, pip_idx in [
-        (config.LM_INDEX_TIP,  config.LM_INDEX_PIP),
-        (config.LM_MIDDLE_TIP, config.LM_MIDDLE_PIP),
-        (config.LM_RING_TIP,   config.LM_RING_PIP),
-        (config.LM_PINKY_TIP,  config.LM_PINKY_PIP),
-    ]:
-        if is_finger_up(landmarks, tip_idx, pip_idx):
-            return False
-    return True
+    return not any(count_fingers_up(landmarks)[1:])
 
 
 def is_index_only(landmarks: list) -> bool:
@@ -96,14 +88,13 @@ def is_index_only(landmarks: list) -> bool:
     return fingers[1] and not fingers[2] and not fingers[3] and not fingers[4]
 
 
-def is_index_middle_up(landmarks: list) -> bool:
+def is_pinky_only_up(landmarks: list) -> bool:
     """
-    Index and middle fingers extended, ring and pinky curled.
-
-    Used as the entry condition for scroll detection in M1 and M3.
+    Pinky finger extended, index, middle, ring curled.
+    Strict check to prevent accidental activation during normal mouse use.
     """
     fingers = count_fingers_up(landmarks)
-    return fingers[1] and fingers[2] and not fingers[3] and not fingers[4]
+    return not fingers[1] and not fingers[2] and not fingers[3] and fingers[4]
 
 
 def is_pinch(landmarks: list, tip_a_idx: int, tip_b_idx: int,

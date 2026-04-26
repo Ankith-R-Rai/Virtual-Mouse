@@ -42,7 +42,7 @@ from utils.math_utils import (
     smooth_value,
     clamp,
 )
-from utils.gesture_utils import is_index_middle_up
+from utils.gesture_utils import is_pinky_only_up
 
 
 class CoreGestureEngine:
@@ -115,7 +115,7 @@ class CoreGestureEngine:
     # Core frame processing
     # ------------------------------------------------------------------
 
-    def process_frame(self, frame: np.ndarray) -> dict:
+    def process_frame(self, frame: np.ndarray, mode: str = "MOUSE") -> dict:
         """
         Process one BGR webcam frame (already flipped by caller).
 
@@ -182,8 +182,19 @@ class CoreGestureEngine:
                 h.classification[0].label for h in results.multi_handedness
             ]
 
-        # Primary hand is the first detected hand.
-        primary = state["landmarks"][0]
+        # Identify hands by label
+        primary   = state["landmarks"][0] # fallback
+        secondary = None
+        
+        if "handedness" in state:
+            for i, label in enumerate(state["handedness"]):
+                if label == "Right":
+                    primary = state["landmarks"][i]
+                elif label == "Left":
+                    secondary = state["landmarks"][i]
+        
+        state["primary_landmarks"]   = primary
+        state["secondary_landmarks"] = secondary
 
         # ---- Cursor movement -----------------------------------------
         # 1. Map index-finger-tip normalized → screen pixels.
@@ -214,24 +225,37 @@ class CoreGestureEngine:
         state["cursor_pos"] = (self.cursor_x, self.cursor_y)
 
         # 5. Move the system cursor.
-        try:
-            pyautogui.moveTo(self.cursor_x, self.cursor_y)
-        except pyautogui.FailSafeException:
-            # User triggered emergency abort — do not crash, just skip move.
-            pass
+        if mode == "MOUSE":
+            try:
+                pyautogui.moveTo(self.cursor_x, self.cursor_y)
+            except pyautogui.FailSafeException:
+                # User triggered emergency abort — do not crash, just skip move.
+                pass
 
         # ---- Gesture detection ---------------------------------------
-        gesture = self._detect_click(primary, w, h)
-        if gesture == "NONE":
-            gesture = self._detect_scroll(primary, w, h)
+        # Scroll is now triggered by the Left hand (secondary)
+        gesture = self._detect_scroll(secondary, w, h, mode)
+        
+        # IF the left hand is visible, we LOCK the mouse from clicking 
+        # to ensure the scroller never accidentally clicks things.
+        if secondary is not None:
+            if gesture == "NONE":
+                gesture = "SCROLL_WAIT" # dummy state to block click detection
+        else:
+            if gesture == "NONE":
+                gesture = self._detect_click(primary, w, h, mode)
 
         self.current_gesture = gesture
         state["gesture"]     = gesture
 
         # ---- Update rolling wrist-y buffer (for M3) ------------------
-        wrist_y_px = int(primary[config.LM_WRIST].y * h)
-        self.wrist_y_buffer.append(wrist_y_px)
-
+        # If Left hand exists, track its wrist for velocity scrolling.
+        if secondary:
+            wrist_y_px = int(secondary[config.LM_WRIST].y * h)
+            self.wrist_y_buffer.append(wrist_y_px)
+        else:
+            self.wrist_y_buffer.clear() # No scroller hand = no scroll velocity
+            
         state["frame"] = frame
         return state
 
@@ -239,7 +263,7 @@ class CoreGestureEngine:
     # Click detection
     # ------------------------------------------------------------------
 
-    def _detect_click(self, landmarks, frame_w: int, frame_h: int) -> str:
+    def _detect_click(self, landmarks, frame_w: int, frame_h: int, mode: str = "MOUSE") -> str:
         """
         Detect left-click and right-click via pinch distances.
 
@@ -251,31 +275,35 @@ class CoreGestureEngine:
         """
         now = time.time()
 
+
         # Denormalize landmarks to frame pixel space for distance measurement.
         thumb_px  = landmark_to_pixel(landmarks[config.LM_THUMB_TIP],  frame_w, frame_h)
         index_px  = landmark_to_pixel(landmarks[config.LM_INDEX_TIP],  frame_w, frame_h)
         middle_px = landmark_to_pixel(landmarks[config.LM_MIDDLE_TIP], frame_w, frame_h)
 
         left_dist  = euclidean_distance(thumb_px,  index_px)
-        right_dist = euclidean_distance(index_px, middle_px)
+        # Right click: thumb tip to middle tip
+        right_dist = euclidean_distance(thumb_px, middle_px)
 
         # Left click
         if (left_dist < config.LEFT_CLICK_THRESHOLD and
                 now - self._last_left_click > config.CLICK_COOLDOWN):
-            try:
-                pyautogui.click()
-            except pyautogui.FailSafeException:
-                pass
+            if mode == "MOUSE":
+                try:
+                    pyautogui.click()
+                except pyautogui.FailSafeException:
+                    pass
             self._last_left_click = now
             return "LEFT_CLICK"
 
         # Right click (only if left click did not fire — avoids conflict)
         if (right_dist < config.RIGHT_CLICK_THRESHOLD and
                 now - self._last_right_click > config.CLICK_COOLDOWN):
-            try:
-                pyautogui.rightClick()
-            except pyautogui.FailSafeException:
-                pass
+            if mode == "MOUSE":
+                try:
+                    pyautogui.rightClick()
+                except pyautogui.FailSafeException:
+                    pass
             self._last_right_click = now
             return "RIGHT_CLICK"
 
@@ -285,17 +313,11 @@ class CoreGestureEngine:
     # Basic scroll detection (M3 velocity scroll will override this)
     # ------------------------------------------------------------------
 
-    def _detect_scroll(self, landmarks, frame_w: int, frame_h: int) -> str:
+    def _detect_scroll(self, landmarks, frame_w: int, frame_h: int, mode: str = "MOUSE") -> str:
         """
-        Basic fixed-amount scroll.
-
-        Trigger: index + middle fingers up, wrist (LM0) moves vertically.
-        Direction: wrist moves up   → scroll up   (+)
-                   wrist moves down → scroll down (-)
-
-        M3 replaces this with velocity-proportional scrolling.
+        Left hand presence triggers scroll mode.
         """
-        if not is_index_middle_up(landmarks):
+        if landmarks is None:
             self._prev_wrist_y = None
             return "NONE"
 
@@ -315,10 +337,11 @@ class CoreGestureEngine:
         # dy < 0 means wrist moved up    → scroll up   (positive in pyautogui)
         scroll_amount = -config.SCROLL_FIXED if dy > 0 else config.SCROLL_FIXED
 
-        try:
-            pyautogui.scroll(scroll_amount)
-        except pyautogui.FailSafeException:
-            pass
+        if mode == "MOUSE":
+            try:
+                pyautogui.scroll(scroll_amount)
+            except pyautogui.FailSafeException:
+                pass
 
         return "SCROLL_UP" if scroll_amount > 0 else "SCROLL_DOWN"
 

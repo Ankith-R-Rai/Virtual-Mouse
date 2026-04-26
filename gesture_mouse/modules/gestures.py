@@ -34,7 +34,8 @@ if _ROOT not in sys.path:
 import config
 from utils.math_utils    import euclidean_distance, landmark_to_pixel
 from utils.gesture_utils import (
-    is_fist, is_index_only, is_index_middle_up,
+    is_fist, is_index_only, is_pinky_only_up,
+    is_finger_up, count_fingers_up,
 )
 
 
@@ -108,22 +109,23 @@ class GestureModule:
 
         gesture = "NONE"
 
-        if landmarks:
-            primary = landmarks[0]
+        primary   = state.get("primary_landmarks")
+        secondary = state.get("secondary_landmarks")
 
-            if self.mode == "MOUSE":
-                gesture = self._velocity_scroll(primary, state)
+        if primary or secondary:
+            if self.mode == "MOUSE" and secondary:
+                gesture = self._velocity_scroll(secondary, state)
 
-            elif self.mode == "WHITEBOARD":
-                gesture = self._whiteboard(primary, w, h)
+            elif self.mode == "WHITEBOARD" and primary:
+                gesture = self._whiteboard(primary, state, w, h)
 
-            elif self.mode == "ZOOM":
+            elif self.mode == "ZOOM" and primary and secondary:
                 gesture = self._pinch_zoom(landmarks, state)
-
         else:
             # No hand — reset continuity state.
             self._prev_draw_pt   = None
             self._prev_zoom_dist = None
+            self._prev_wrist_y   = None
 
         # Blend the drawing canvas over the frame in every mode so drawings
         # persist when the user temporarily switches away from WHITEBOARD.
@@ -151,7 +153,7 @@ class GestureModule:
         5. Ignore deltas below the dead-zone to suppress idle jitter.
         6. pyautogui.scroll(−amount)  (positive = up, negative = down).
         """
-        if not is_index_middle_up(landmarks):
+        if landmarks is None:
             return "NONE"
 
         buf = state.get("wrist_y_buffer")
@@ -208,20 +210,29 @@ class GestureModule:
         w          = state.get("frame_w", 640)
         h          = state.get("frame_h", 480)
 
-        left_thumb  = None
-        right_thumb = None
+        left_landmarks = None
+        right_landmarks = None
 
-        for i, hand_lms in enumerate(all_landmarks):
-            label     = handedness[i] if i < len(handedness) else "Right"
-            thumb_px  = landmark_to_pixel(hand_lms[config.LM_THUMB_TIP], w, h)
+        for i, lm_list in enumerate(all_landmarks):
+            label = handedness[i] if i < len(handedness) else "Right"
             if label == "Left":
-                left_thumb  = thumb_px
+                left_landmarks = lm_list
             else:
-                right_thumb = thumb_px
+                right_landmarks = lm_list
 
-        if left_thumb is None or right_thumb is None:
+        if left_landmarks is None or right_landmarks is None:
             self._prev_zoom_dist = None
             return "NONE"
+
+        # Zoom trigger: Left hand has Index + Middle up
+        from utils.gesture_utils import count_fingers_up
+        f_left = count_fingers_up(left_landmarks)
+        if not (f_left[1] and f_left[2]):
+            self._prev_zoom_dist = None
+            return "NONE"
+
+        left_thumb  = landmark_to_pixel(left_landmarks[config.LM_THUMB_TIP], w, h)
+        right_thumb = landmark_to_pixel(right_landmarks[config.LM_THUMB_TIP], w, h)
 
         current_dist = euclidean_distance(left_thumb, right_thumb)
 
@@ -258,7 +269,7 @@ class GestureModule:
     # Feature C: Air Whiteboard
     # ------------------------------------------------------------------
 
-    def _whiteboard(self, landmarks, frame_w: int, frame_h: int) -> str:
+    def _whiteboard(self, landmarks, state: dict, frame_w: int, frame_h: int) -> str:
         """
         Freehand drawing on a persistent transparent canvas overlay.
 
@@ -271,12 +282,12 @@ class GestureModule:
         """
         now = time.time()
 
-        # ---- Color switch: thumb tip ↔ ring tip pinch ----------------
+        # ---- Color switch: Thumb tip ↔ Pinky tip pinch (Generous gap) ---
         thumb_px = landmark_to_pixel(landmarks[config.LM_THUMB_TIP], frame_w, frame_h)
-        ring_px  = landmark_to_pixel(landmarks[config.LM_RING_TIP],  frame_w, frame_h)
+        pinky_px = landmark_to_pixel(landmarks[config.LM_PINKY_TIP], frame_w, frame_h)
 
-        if (euclidean_distance(thumb_px, ring_px) < 35 and
-                now - self._last_color_switch > 0.6):
+        if (euclidean_distance(thumb_px, pinky_px) < 40 and
+                now - self._last_color_switch > 0.8):
             self._color_idx      = (self._color_idx + 1) % len(config.WHITEBOARD_COLORS)
             self._draw_color     = config.WHITEBOARD_COLORS[self._color_idx]
             self._last_color_switch = now
@@ -284,8 +295,9 @@ class GestureModule:
 
         # ---- Erase: closed fist --------------------------------------
         if is_fist(landmarks):
-            cx = int(landmarks[config.LM_WRIST].x * frame_w)
-            cy = int(landmarks[config.LM_WRIST].y * frame_h)
+            # Anchor erase to knuckles (Index MCP) instead of wrist
+            cx = int(landmarks[config.LM_INDEX_MCP].x * frame_w)
+            cy = int(landmarks[config.LM_INDEX_MCP].y * frame_h)
             cv2.circle(
                 self._canvas, (cx, cy),
                 config.WHITEBOARD_ERASE_RADIUS, (0, 0, 0), -1,
@@ -293,11 +305,20 @@ class GestureModule:
             self._prev_draw_pt = None
             return "ERASE"
 
-        # ---- Draw: index finger only raised --------------------------
-        if is_index_only(landmarks):
-            curr_pt = landmark_to_pixel(
-                landmarks[config.LM_INDEX_TIP], frame_w, frame_h,
-            )
+        # ---- Draw: index finger extended & NOT a fist ----------------
+        # We allow other fingers to slightly flutter as long as it's not a fist.
+        is_drawing = is_finger_up(landmarks, config.LM_INDEX_TIP, config.LM_INDEX_PIP) and not is_fist(landmarks)
+        if is_drawing:
+            screen_pt = state.get("cursor_pos")
+            if screen_pt is not None:
+                curr_pt = (
+                    int(screen_pt[0] * frame_w / config.SCREEN_WIDTH),
+                    int(screen_pt[1] * frame_h / config.SCREEN_HEIGHT)
+                )
+            else:
+                curr_pt = landmark_to_pixel(
+                    landmarks[config.LM_INDEX_TIP], frame_w, frame_h,
+                )
             if self._prev_draw_pt is not None:
                 cv2.line(
                     self._canvas,
