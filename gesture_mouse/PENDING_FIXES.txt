@@ -1,0 +1,24 @@
+# GESTURE MOUSE - PENDING ISSUES & ROADMAP
+
+As of April 26, 2026, the following items are identified for future refinement to reach 100% stability:
+
+1. HAND-LABEL SWAP DRIFT
+   - Issue: MediaPipe occasionally swaps the "Left" and "Right" labels if a hand is rotated or tilted. 
+   - Impact: This causes the scroller (Left hand) to be detected as the cursor (Right hand), leading to inconsistent behavior in two-handed mode.
+   - Goal: Implement a position-based disambiguation (e.g., the hand on the left of the frame is ALWAYS the scroller).
+
+2. SCROLL VELOCITY CALIBRATION
+   - Issue: Different applications (Chrome vs. PDF readers) respond differently to the current scroll velocity.
+   - Goal: Add a "Dynamic Sensitivity" auto-tuner that adjusts scroll speed based on the active window's scrolling physics.
+
+3. ZOOM ANCHOR STABILITY
+   - Issue: The distance-based zoom can still trigger micro-steps due to hand depth changes (moving hand closer/further from camera).
+   - Goal: Filter out Z-axis (depth) changes so only actual X/Y expansion triggers the zoom.
+
+4. AIR CANVAS PERSISTENCE
+   - Issue: The OpenCV canvas overlay resides in memory. If the app restarts, the drawing is lost.
+   - Goal: Add "Auto-Save" to PNG so air-canvas work can be exported or resumed.
+
+5. VOICE COMMAND LATENCY
+   - Issue: Ambient noise in some environments causes the listener to hang for 1-2 seconds.
+   - Goal: Implement a local pocket-sphinx fallback for offline/instant keyword detection.
