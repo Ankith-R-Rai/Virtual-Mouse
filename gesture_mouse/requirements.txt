@@ -21,3 +21,6 @@ pygetwindow>=0.0.9       # Windows / macOS
 
 # Optional: high-level Kalman filter (M2 prototyping only)
 # pykalman>=0.9.7
+
+# Brightness control (open-palm gesture)
+screen-brightness-control>=0.20.0

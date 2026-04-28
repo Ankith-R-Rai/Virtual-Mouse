@@ -40,11 +40,12 @@ import config
 # ---------------------------------------------------------------------------
 # Gesture guide text shown in the bottom bar per mode
 # ---------------------------------------------------------------------------
-_GESTURE_GUIDE: dict[str, str] = {
-    "MOUSE":      "L/R-Click: Right hand  |  Scroll: Move Left Hand Up/Down",
-    "WHITEBOARD": "Draw: Right Index Up | Erase: Right Fist | Color: Right Thumb+Pinky",
-    "ZOOM":       "Hold 2 fingers UP on Left Hand + move hands apart/together",
-    "VOICE":      "Say: 'open browser' | 'take screenshot' | 'whiteboard on/off'",
+_GESTURE_GUIDE: dict[str, list[str]] = {
+    "MOUSE":      ["Click:Thumb+Index | RightClick:Thumb+Middle | DoubleClick:Thumb+Ring",
+                   "Scroll:Index+Middle up | Drag:Fist | Volume/Brightness:Open Palm"],
+    "WHITEBOARD": ["Draw: Index Up | Erase: Fist | Color: Thumb+Pinky pinch"],
+    "ZOOM":       ["Spread Thumb+Index = Zoom In | Pinch Thumb+Index = Zoom Out"],
+    "VOICE":      ["Say: 'open browser' | 'take screenshot' | 'whiteboard on/off'"],
 }
 
 
@@ -250,11 +251,13 @@ class UIModule:
     def _draw_bottom_bar(self, frame: np.ndarray, state: dict,
                          w: int, h: int) -> None:
         """
-        Thin translucent bar at the bottom showing the gesture guide
-        for the current mode.
+        Translucent bar at the bottom showing the gesture guide
+        for the current mode. Supports multi-line guides.
         """
-        BAR_H   = 30
-        guide   = _GESTURE_GUIDE.get(self._mode, "")
+        lines   = _GESTURE_GUIDE.get(self._mode, [""])
+        n_lines = len(lines)
+        LINE_H  = 22
+        BAR_H   = LINE_H * n_lines + 10
         y_top   = h - BAR_H
 
         overlay = frame.copy()
@@ -262,9 +265,11 @@ class UIModule:
         cv2.addWeighted(overlay, 0.6, frame, 0.4, 0, frame)
         cv2.rectangle(frame, (0, y_top), (w, h), config.COLOR_GRAY, 1)
 
-        cv2.putText(frame, guide,
-                    (8, h - 9),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.38, config.COLOR_WHITE, 1)
+        for i, line in enumerate(lines):
+            y_text = y_top + LINE_H * (i + 1)
+            cv2.putText(frame, line,
+                        (8, y_text),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.38, config.COLOR_WHITE, 1)
 
     # ------------------------------------------------------------------
     # Whiteboard color swatch

@@ -90,10 +90,30 @@ VELOCITY_SCROLL_BUFFER_SIZE = 5     # frames kept in rolling wrist-y buffer
 VELOCITY_SCROLL_DEADZONE    = 5     # px delta-y below which scroll is ignored
 
 # ---------------------------------------------------------------------------
-# Pinch-to-zoom (M3)
+# Pinch-to-zoom (M3) — single-hand thumb-index spread
 # ---------------------------------------------------------------------------
-ZOOM_THRESHOLD = 20     # px change in inter-thumb distance to trigger zoom
+ZOOM_THRESHOLD = 12     # px change in thumb-index distance to trigger zoom
 ZOOM_COOLDOWN  = 0.10   # seconds
+
+# ---------------------------------------------------------------------------
+# Drag & Drop (fist gesture in MOUSE mode)
+# ---------------------------------------------------------------------------
+DRAG_COOLDOWN = 0.3     # seconds before drag can re-engage after a drop
+
+# ---------------------------------------------------------------------------
+# Double-click (thumb tip ↔ ring tip pinch)
+# ---------------------------------------------------------------------------
+DOUBLE_CLICK_THRESHOLD = 35    # px — thumb tip ↔ ring finger tip
+DOUBLE_CLICK_COOLDOWN  = 0.5   # seconds
+
+# ---------------------------------------------------------------------------
+# Volume / Brightness (open-palm wrist tracking in MOUSE mode)
+# ---------------------------------------------------------------------------
+VOLUME_DEADZONE     = 8    # px — min wrist-X delta per frame
+BRIGHTNESS_DEADZONE = 8    # px — min wrist-Y delta per frame
+VOLUME_STEP         = 2    # key-presses per trigger
+BRIGHTNESS_STEP     = 5    # percentage points per trigger
+MEDIA_COOLDOWN      = 0.15 # seconds between repeated volume/brightness steps
 
 # ---------------------------------------------------------------------------
 # Air Whiteboard (M3)

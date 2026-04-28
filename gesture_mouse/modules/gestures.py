@@ -59,7 +59,7 @@ class GestureModule:
         # Sensitivity is overridden by M4 context profile each 500 ms.
         self._scroll_sensitivity: float = config.SCROLL_SENSITIVITY
 
-        # ---- Feature B: Pinch-to-Zoom ----------------------------------
+        # ---- Feature B: Pinch-to-Zoom (single-hand thumb-index) --------
         self._prev_zoom_dist: float | None = None
         self._last_zoom_time: float        = 0.0
 
@@ -70,6 +70,10 @@ class GestureModule:
         self._color_idx: int             = 0
         self._draw_color: tuple          = config.WHITEBOARD_COLORS[0]
         self._last_color_switch: float   = 0.0
+
+        # ---- Feature D: Volume / Brightness (open-palm) ----------------
+        self._prev_media_wrist: tuple | None = None
+        self._last_media_time: float         = 0.0
 
         # ---- State exposed to HUD (M5) ---------------------------------
         self.last_gesture: str = "NONE"
@@ -113,19 +117,23 @@ class GestureModule:
         secondary = state.get("secondary_landmarks")
 
         if primary or secondary:
-            if self.mode == "MOUSE" and secondary:
-                gesture = self._velocity_scroll(secondary, state)
+            if self.mode == "MOUSE":
+                m1_gesture = state.get("gesture", "NONE")
+                if m1_gesture == "SCROLLING" and primary:
+                    gesture = self._velocity_scroll(state)
+                elif m1_gesture == "OPEN_PALM" and primary:
+                    gesture = self._media_control(primary, state, w, h)
 
             elif self.mode == "WHITEBOARD" and primary:
                 gesture = self._whiteboard(primary, state, w, h)
 
-            elif self.mode == "ZOOM" and primary and secondary:
-                gesture = self._pinch_zoom(landmarks, state)
+            elif self.mode == "ZOOM" and primary:
+                gesture = self._pinch_zoom(primary, state, w, h)
         else:
             # No hand — reset continuity state.
-            self._prev_draw_pt   = None
-            self._prev_zoom_dist = None
-            self._prev_wrist_y   = None
+            self._prev_draw_pt    = None
+            self._prev_zoom_dist  = None
+            self._prev_media_wrist = None
 
         # Blend the drawing canvas over the frame in every mode so drawings
         # persist when the user temporarily switches away from WHITEBOARD.
@@ -140,22 +148,14 @@ class GestureModule:
     # Feature A: Velocity-Proportional Scroll
     # ------------------------------------------------------------------
 
-    def _velocity_scroll(self, landmarks, state: dict) -> str:
+    def _velocity_scroll(self, state: dict) -> str:
         """
         Map wrist vertical velocity to a scroll amount.
 
-        Algorithm
-        ---------
-        1. Require index + middle fingers raised (scroll posture).
-        2. Consume the rolling wrist-y buffer populated by M1 each frame.
-        3. Compute per-frame dy = buffer[-1] − buffer[-2].
-        4. Apply sensitivity factor (overridden by M4 context profile).
-        5. Ignore deltas below the dead-zone to suppress idle jitter.
-        6. pyautogui.scroll(−amount)  (positive = up, negative = down).
+        Triggered when M1 detects scroll posture (index+middle up, others
+        down) on the primary (right) hand.  Consumes the rolling wrist-y
+        buffer populated by M1.
         """
-        if landmarks is None:
-            return "NONE"
-
         buf = state.get("wrist_y_buffer")
         if buf is None or len(buf) < 2:
             return "NONE"
@@ -188,53 +188,27 @@ class GestureModule:
     # Feature B: Pinch-to-Zoom
     # ------------------------------------------------------------------
 
-    def _pinch_zoom(self, all_landmarks: list, state: dict) -> str:
+    def _pinch_zoom(self, landmarks, state: dict, frame_w: int, frame_h: int) -> str:
         """
-        Two-hand pinch-to-zoom via Ctrl+Plus / Ctrl+Minus.
+        Single-hand pinch-to-zoom via Ctrl+Plus / Ctrl+Minus.
 
         Algorithm
         ---------
-        1. Require both hands detected (len(all_landmarks) >= 2).
-        2. Identify left-hand and right-hand thumb tips from handedness labels.
-        3. Compute Euclidean distance D between the two thumb tips.
-        4. Compare D with D from the previous frame.
-           D increased by ZOOM_THRESHOLD → Ctrl+Plus  (zoom in)
-           D decreased by ZOOM_THRESHOLD → Ctrl+Minus (zoom out)
-        5. Enforce a per-action cooldown to prevent rapid repeated triggers.
+        1. On the primary (right) hand, compute the distance between
+           thumb tip and index finger tip.
+        2. Compare with the previous frame's distance.
+           Distance increased by ZOOM_THRESHOLD → Ctrl+Plus  (zoom in)
+           Distance decreased by ZOOM_THRESHOLD → Ctrl+Minus (zoom out)
+        3. Enforce a per-action cooldown to prevent rapid repeated triggers.
         """
-        if len(all_landmarks) < 2:
+        if landmarks is None:
             self._prev_zoom_dist = None
             return "NONE"
 
-        handedness = state.get("handedness", [])
-        w          = state.get("frame_w", 640)
-        h          = state.get("frame_h", 480)
+        thumb_px = landmark_to_pixel(landmarks[config.LM_THUMB_TIP],  frame_w, frame_h)
+        index_px = landmark_to_pixel(landmarks[config.LM_INDEX_TIP],  frame_w, frame_h)
 
-        left_landmarks = None
-        right_landmarks = None
-
-        for i, lm_list in enumerate(all_landmarks):
-            label = handedness[i] if i < len(handedness) else "Right"
-            if label == "Left":
-                left_landmarks = lm_list
-            else:
-                right_landmarks = lm_list
-
-        if left_landmarks is None or right_landmarks is None:
-            self._prev_zoom_dist = None
-            return "NONE"
-
-        # Zoom trigger: Left hand has Index + Middle up
-        from utils.gesture_utils import count_fingers_up
-        f_left = count_fingers_up(left_landmarks)
-        if not (f_left[1] and f_left[2]):
-            self._prev_zoom_dist = None
-            return "NONE"
-
-        left_thumb  = landmark_to_pixel(left_landmarks[config.LM_THUMB_TIP], w, h)
-        right_thumb = landmark_to_pixel(right_landmarks[config.LM_THUMB_TIP], w, h)
-
-        current_dist = euclidean_distance(left_thumb, right_thumb)
+        current_dist = euclidean_distance(thumb_px, index_px)
 
         if self._prev_zoom_dist is None:
             self._prev_zoom_dist = current_dist
@@ -264,6 +238,80 @@ class GestureModule:
             return "ZOOM_OUT"
 
         return "NONE"
+
+    # ------------------------------------------------------------------
+    # Feature D: Volume / Brightness (open-palm wrist tracking)
+    # ------------------------------------------------------------------
+
+    def _media_control(self, landmarks, state: dict,
+                       frame_w: int, frame_h: int) -> str:
+        """
+        Open-palm gesture for volume and brightness control.
+
+        Activated when M1 detects all 5 fingers up (OPEN_PALM) in MOUSE mode.
+        Tracks wrist position delta:
+            • Wrist moves left  → volume down
+            • Wrist moves right → volume up
+            • Wrist moves up    → brightness up
+            • Wrist moves down  → brightness down
+        """
+        if landmarks is None:
+            self._prev_media_wrist = None
+            return "NONE"
+
+        wrist_x = int(landmarks[config.LM_WRIST].x * frame_w)
+        wrist_y = int(landmarks[config.LM_WRIST].y * frame_h)
+
+        if self._prev_media_wrist is None:
+            self._prev_media_wrist = (wrist_x, wrist_y)
+            return "NONE"
+
+        dx = wrist_x - self._prev_media_wrist[0]
+        dy = wrist_y - self._prev_media_wrist[1]
+        self._prev_media_wrist = (wrist_x, wrist_y)
+
+        now = time.time()
+        if now - self._last_media_time < config.MEDIA_COOLDOWN:
+            return "NONE"
+
+        gesture = "NONE"
+
+        # --- Volume (horizontal wrist movement) -----------------------
+        if abs(dx) > config.VOLUME_DEADZONE:
+            try:
+                if dx > 0:
+                    for _ in range(config.VOLUME_STEP):
+                        pyautogui.press("volumeup")
+                    gesture = "VOL_UP"
+                else:
+                    for _ in range(config.VOLUME_STEP):
+                        pyautogui.press("volumedown")
+                    gesture = "VOL_DOWN"
+                self._last_media_time = now
+            except Exception:
+                pass
+
+        # --- Brightness (vertical wrist movement) --------------------
+        if abs(dy) > config.BRIGHTNESS_DEADZONE:
+            try:
+                import screen_brightness_control as sbc
+                current = sbc.get_brightness(display=0)
+                if isinstance(current, list):
+                    current = current[0]
+                if dy < 0:   # wrist moved up → brightness up
+                    new_val = min(100, current + config.BRIGHTNESS_STEP)
+                    gesture = "BRIGHT_UP"
+                else:        # wrist moved down → brightness down
+                    new_val = max(0, current - config.BRIGHTNESS_STEP)
+                    gesture = "BRIGHT_DOWN"
+                sbc.set_brightness(new_val, display=0)
+                self._last_media_time = now
+            except ImportError:
+                pass   # screen_brightness_control not installed
+            except Exception:
+                pass   # external-monitor or permission issue
+
+        return gesture
 
     # ------------------------------------------------------------------
     # Feature C: Air Whiteboard
@@ -378,8 +426,9 @@ class GestureModule:
         """
         if mode not in config.MODES:
             return
-        self.mode            = mode
-        self._prev_draw_pt   = None
-        self._prev_zoom_dist = None
+        self.mode             = mode
+        self._prev_draw_pt    = None
+        self._prev_zoom_dist  = None
+        self._prev_media_wrist = None
         # The canvas is intentionally NOT cleared on mode switch so
         # the user can return to their whiteboard drawing.

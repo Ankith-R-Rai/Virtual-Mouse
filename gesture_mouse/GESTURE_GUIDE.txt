@@ -1,0 +1,136 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║              GESTURE & VOICE CONTROLLED VIRTUAL MOUSE                    ║
+║                        GESTURE REFERENCE GUIDE                           ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+══════════════════════════════════════════════════════════════════════════
+  MODE: MOUSE  (Default — cursor control + clicks + scroll + drag)
+══════════════════════════════════════════════════════════════════════════
+
+  CURSOR MOVEMENT
+    → Point with your RIGHT hand index finger
+    → The cursor follows your index fingertip on screen
+
+  LEFT CLICK
+    → Pinch THUMB tip + INDEX fingertip together (right hand)
+    → Quick pinch and release
+
+  RIGHT CLICK
+    → Pinch THUMB tip + MIDDLE fingertip together (right hand)
+    → Quick pinch and release
+
+  DOUBLE CLICK
+    → Pinch THUMB tip + RING fingertip together (right hand)
+    → Cooldown: 0.5s between triggers to prevent accidental repeats
+
+  SCROLL UP / DOWN
+    → Raise INDEX + MIDDLE fingers (right hand), keep RING + PINKY curled
+    → Move your hand UP to scroll up, DOWN to scroll down
+    → Speed is proportional to how fast you move your hand
+
+  DRAG & DROP
+    → Move cursor to the target object
+    → Close your RIGHT hand into a FIST to grab (mouseDown)
+    → Move your fist to drag the object
+    → Open your hand to drop (mouseUp)
+    → During drag, cursor tracks your wrist for stability
+
+  VOLUME CONTROL
+    → Open your RIGHT hand fully — all 5 fingers extended (open palm)
+    → Move hand to the RIGHT → Volume Up
+    → Move hand to the LEFT  → Volume Down
+
+  BRIGHTNESS CONTROL
+    → Open your RIGHT hand fully — all 5 fingers extended (open palm)
+    → Move hand UP   → Brightness Up
+    → Move hand DOWN → Brightness Down
+    → Note: Volume and brightness can adjust simultaneously
+
+══════════════════════════════════════════════════════════════════════════
+  MODE: WHITEBOARD  (Air drawing canvas)
+══════════════════════════════════════════════════════════════════════════
+
+  DRAW
+    → Extend your RIGHT INDEX finger (others can be relaxed)
+    → Move your finger to draw lines on the canvas
+
+  ERASE
+    → Make a FIST with your RIGHT hand
+    → Move over drawn areas to erase (circle eraser at knuckle)
+
+  CHANGE COLOR
+    → Pinch THUMB tip + PINKY tip together (right hand)
+    → Cycles through: Red → Green → Blue → White → Yellow
+
+  CLEAR CANVAS
+    → Press 'c' on keyboard
+
+══════════════════════════════════════════════════════════════════════════
+  MODE: ZOOM  (Browser / application zoom)
+══════════════════════════════════════════════════════════════════════════
+
+  ZOOM IN
+    → Spread THUMB + INDEX finger apart on your RIGHT hand
+    → Increasing distance triggers Ctrl+Plus
+
+  ZOOM OUT
+    → Pinch THUMB + INDEX finger together on your RIGHT hand
+    → Decreasing distance triggers Ctrl+Minus
+
+══════════════════════════════════════════════════════════════════════════
+  MODE: VOICE  (Voice command recognition)
+══════════════════════════════════════════════════════════════════════════
+
+  AVAILABLE COMMANDS:
+    "open browser"         → Opens Google Chrome
+    "take screenshot"      → Saves screenshot as PNG
+    "enable smooth mode"   → Turns ON Kalman tremor filter
+    "disable smooth mode"  → Turns OFF Kalman tremor filter
+    "whiteboard on"        → Switches to WHITEBOARD mode
+    "whiteboard off"       → Switches back to MOUSE mode
+    "scroll up fast"       → Temporarily boosts scroll speed (3s)
+    "scroll down fast"     → Temporarily boosts scroll speed (3s)
+    "switch to mouse"      → Switches to MOUSE mode
+    "switch to whiteboard" → Switches to WHITEBOARD mode
+    "switch to zoom"       → Switches to ZOOM mode
+    "switch to voice"      → Switches to VOICE mode
+
+══════════════════════════════════════════════════════════════════════════
+  KEYBOARD SHORTCUTS
+══════════════════════════════════════════════════════════════════════════
+
+    TAB  → Cycle modes: MOUSE → WHITEBOARD → ZOOM → VOICE
+    k    → Toggle Kalman tremor filter ON/OFF
+    c    → Clear whiteboard canvas
+    q    → Quit application
+
+  EMERGENCY STOP:
+    → Move your real mouse to the top-left corner of the screen
+
+══════════════════════════════════════════════════════════════════════════
+  GESTURE PRIORITY (MOUSE MODE)
+══════════════════════════════════════════════════════════════════════════
+
+  When multiple gestures could match, the system uses this priority:
+
+    1. SCROLL        (Index+Middle up, Ring+Pinky down)
+    2. VOL/BRIGHT    (All 5 fingers up — open palm)
+    3. DRAG          (Fist — all fingers curled)
+    4. LEFT CLICK    (Thumb + Index pinch)
+    5. RIGHT CLICK   (Thumb + Middle pinch)
+    6. DOUBLE CLICK  (Thumb + Ring pinch)
+
+  Higher priority gestures always take precedence. For example, if
+  your index and middle fingers are up (scroll posture), clicks will
+  NOT fire even if your thumb is near your index finger.
+
+══════════════════════════════════════════════════════════════════════════
+  TIPS FOR BEST RESULTS
+══════════════════════════════════════════════════════════════════════════
+
+  • Keep your hand 30–60 cm from the camera
+  • Ensure good lighting on your hand (avoid backlight)
+  • For scroll: make the two-finger posture deliberate
+  • For drag: close fist firmly so all fingers are detected as curled
+  • For volume/brightness: spread all 5 fingers wide
+  • The Kalman filter (press 'k') helps if you have hand tremor

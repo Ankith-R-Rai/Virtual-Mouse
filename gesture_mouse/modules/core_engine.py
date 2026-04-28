@@ -42,7 +42,9 @@ from utils.math_utils import (
     smooth_value,
     clamp,
 )
-from utils.gesture_utils import is_pinky_only_up
+from utils.gesture_utils import (
+    is_pinky_only_up, count_fingers_up, is_fist,
+)
 
 
 class CoreGestureEngine:
@@ -94,12 +96,19 @@ class CoreGestureEngine:
         # ---- Click cooldown ------------------------------------------
         self._last_left_click:  float = 0.0
         self._last_right_click: float = 0.0
+        self._last_double_click: float = 0.0
 
-        # ---- Scroll state (M1 basic) ---------------------------------
+        # ---- Scroll state (right-hand posture based) -----------------
         self._prev_wrist_y: int | None = None
 
         # Rolling wrist-y buffer — consumed by M3 velocity scroll.
         self.wrist_y_buffer: deque = deque(maxlen=config.VELOCITY_SCROLL_BUFFER_SIZE)
+
+        # ---- Drag & Drop state ---------------------------------------
+        self._is_dragging: bool   = False
+        self._last_drop_time: float = 0.0
+        self._drag_wrist_start: tuple | None = None
+        self._drag_cursor_start: tuple | None = None
 
         # ---- Coordinate preprocessor hook (assigned by M2) ----------
         # M2 sets:  engine.coord_preprocessor = kalman_module.filter_coords
@@ -196,67 +205,102 @@ class CoreGestureEngine:
         state["primary_landmarks"]   = primary
         state["secondary_landmarks"] = secondary
 
+        # ---- Gesture detection (posture-first) -----------------------
+        # Detect hand posture BEFORE cursor movement so drag can use
+        # wrist tracking instead of index-tip tracking.
+        gesture = "NONE"
+        use_wrist_for_cursor = False    # True during drag
+
+        if mode == "MOUSE":
+            fingers = count_fingers_up(primary)
+            is_scroll_posture = (fingers[1] and fingers[2]
+                                 and not fingers[3] and not fingers[4])
+            is_open_palm = all(fingers)
+            is_fist_now  = is_fist(primary)
+
+            # --- Priority 1: Scroll (index+middle up, others down) ----
+            if is_scroll_posture:
+                wrist_y_px = int(primary[config.LM_WRIST].y * h)
+                self.wrist_y_buffer.append(wrist_y_px)
+                gesture = "SCROLLING"
+                if self._is_dragging:
+                    try: pyautogui.mouseUp()
+                    except pyautogui.FailSafeException: pass
+                    self._is_dragging = False
+
+            # --- Priority 2: Open palm (all 5 up) → vol/brightness ---
+            elif is_open_palm:
+                gesture = "OPEN_PALM"
+                self.wrist_y_buffer.clear()
+                if self._is_dragging:
+                    try: pyautogui.mouseUp()
+                    except pyautogui.FailSafeException: pass
+                    self._is_dragging = False
+
+            # --- Priority 3: Fist → Drag ------------------------------
+            elif is_fist_now:
+                self.wrist_y_buffer.clear()
+                now = time.time()
+                if not self._is_dragging and (now - self._last_drop_time > config.DRAG_COOLDOWN):
+                    try: pyautogui.mouseDown()
+                    except pyautogui.FailSafeException: pass
+                    self._is_dragging = True
+                    gesture = "DRAG_START"
+                elif self._is_dragging:
+                    gesture = "DRAGGING"
+                    use_wrist_for_cursor = True
+
+            # --- Priority 4: Clicks (left / right / double) ----------
+            else:
+                self.wrist_y_buffer.clear()
+                if self._is_dragging:
+                    try: pyautogui.mouseUp()
+                    except pyautogui.FailSafeException: pass
+                    self._is_dragging = False
+                    self._last_drop_time = time.time()
+                    gesture = "DROP"
+                else:
+                    gesture = self._detect_click(primary, w, h, mode)
+
         # ---- Cursor movement -----------------------------------------
-        # 1. Map index-finger-tip normalized → screen pixels.
+        # During drag, track wrist for stable movement; otherwise index tip.
+        if use_wrist_for_cursor:
+            track_lm = primary[config.LM_WRIST]
+        else:
+            track_lm = primary[config.LM_INDEX_TIP]
+
         raw_x, raw_y = map_to_screen(
-            primary[config.LM_INDEX_TIP].x,
-            primary[config.LM_INDEX_TIP].y,
-            self.screen_w,
-            self.screen_h,
+            track_lm.x, track_lm.y,
+            self.screen_w, self.screen_h,
         )
         state["raw_cursor"] = (raw_x, raw_y)
 
-        # 2. Apply coordinate preprocessor (M2 Kalman filter) if registered.
-        #    M2 sets engine.coord_preprocessor = kalman_module.filter_coords
-        #    so filtering happens in-frame with zero lag.
+        # Apply coordinate preprocessor (M2 Kalman filter) if registered.
         if self.coord_preprocessor is not None:
             target_x, target_y = self.coord_preprocessor(raw_x, raw_y)
         else:
             target_x, target_y = raw_x, raw_y
 
-        # 3. Apply EMA smoothing (M1-level; M2 already applied its own filter).
+        # EMA smoothing.
         self.cursor_x = int(smooth_value(target_x, self.cursor_x, config.CURSOR_SMOOTHING))
         self.cursor_y = int(smooth_value(target_y, self.cursor_y, config.CURSOR_SMOOTHING))
 
-        # 4. Clamp to screen bounds.
+        # Clamp to screen bounds.
         self.cursor_x = int(clamp(self.cursor_x, 0, self.screen_w - 1))
         self.cursor_y = int(clamp(self.cursor_y, 0, self.screen_h - 1))
 
         state["cursor_pos"] = (self.cursor_x, self.cursor_y)
 
-        # 5. Move the system cursor.
+        # Move the system cursor.
         if mode == "MOUSE":
             try:
                 pyautogui.moveTo(self.cursor_x, self.cursor_y)
             except pyautogui.FailSafeException:
-                # User triggered emergency abort — do not crash, just skip move.
                 pass
-
-        # ---- Gesture detection ---------------------------------------
-        # Scroll is now triggered by the Left hand (secondary)
-        gesture = self._detect_scroll(secondary, w, h, mode)
-        
-        # IF the left hand is visible, we LOCK the mouse from clicking 
-        # to ensure the scroller never accidentally clicks things.
-        if secondary is not None:
-            if gesture == "NONE":
-                gesture = "SCROLL_WAIT" # dummy state to block click detection
-        else:
-            if gesture == "NONE":
-                gesture = self._detect_click(primary, w, h, mode)
 
         self.current_gesture = gesture
         state["gesture"]     = gesture
-
-        # ---- Update rolling wrist-y buffer (for M3) ------------------
-        # If Left hand exists, track its wrist for velocity scrolling.
-        if secondary:
-            wrist_y_px = int(secondary[config.LM_WRIST].y * h)
-            self.wrist_y_buffer.append(wrist_y_px)
-        else:
-            self.wrist_y_buffer.clear() # No scroller hand = no scroll velocity
-            
-        state["frame"] = frame
+        state["frame"]       = frame
         return state
 
     # ------------------------------------------------------------------
@@ -281,9 +325,11 @@ class CoreGestureEngine:
         index_px  = landmark_to_pixel(landmarks[config.LM_INDEX_TIP],  frame_w, frame_h)
         middle_px = landmark_to_pixel(landmarks[config.LM_MIDDLE_TIP], frame_w, frame_h)
 
-        left_dist  = euclidean_distance(thumb_px,  index_px)
-        # Right click: thumb tip to middle tip
-        right_dist = euclidean_distance(thumb_px, middle_px)
+        ring_px   = landmark_to_pixel(landmarks[config.LM_RING_TIP],   frame_w, frame_h)
+
+        left_dist   = euclidean_distance(thumb_px,  index_px)
+        right_dist  = euclidean_distance(thumb_px, middle_px)
+        double_dist = euclidean_distance(thumb_px, ring_px)
 
         # Left click
         if (left_dist < config.LEFT_CLICK_THRESHOLD and
@@ -307,43 +353,23 @@ class CoreGestureEngine:
             self._last_right_click = now
             return "RIGHT_CLICK"
 
+        # Double-click: thumb tip ↔ ring finger tip
+        if (double_dist < config.DOUBLE_CLICK_THRESHOLD and
+                now - self._last_double_click > config.DOUBLE_CLICK_COOLDOWN):
+            if mode == "MOUSE":
+                try:
+                    pyautogui.doubleClick()
+                except pyautogui.FailSafeException:
+                    pass
+            self._last_double_click = now
+            return "DOUBLE_CLICK"
+
         return "NONE"
 
     # ------------------------------------------------------------------
-    # Basic scroll detection (M3 velocity scroll will override this)
+    # Basic scroll detection — REMOVED (now handled via posture check
+    # in process_frame + M3 velocity scroll)
     # ------------------------------------------------------------------
-
-    def _detect_scroll(self, landmarks, frame_w: int, frame_h: int, mode: str = "MOUSE") -> str:
-        """
-        Left hand presence triggers scroll mode.
-        """
-        if landmarks is None:
-            self._prev_wrist_y = None
-            return "NONE"
-
-        wrist_y_px = int(landmarks[config.LM_WRIST].y * frame_h)
-
-        if self._prev_wrist_y is None:
-            self._prev_wrist_y = wrist_y_px
-            return "NONE"
-
-        dy = wrist_y_px - self._prev_wrist_y
-        self._prev_wrist_y = wrist_y_px
-
-        if abs(dy) < config.SCROLL_DEADZONE:
-            return "NONE"
-
-        # dy > 0 means wrist moved down  → scroll down (negative in pyautogui)
-        # dy < 0 means wrist moved up    → scroll up   (positive in pyautogui)
-        scroll_amount = -config.SCROLL_FIXED if dy > 0 else config.SCROLL_FIXED
-
-        if mode == "MOUSE":
-            try:
-                pyautogui.scroll(scroll_amount)
-            except pyautogui.FailSafeException:
-                pass
-
-        return "SCROLL_UP" if scroll_amount > 0 else "SCROLL_DOWN"
 
     # ------------------------------------------------------------------
     # Debug / minimal HUD  (M5 renders the full HUD over this)
