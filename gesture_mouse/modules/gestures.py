@@ -55,13 +55,12 @@ class GestureModule:
         # Active interaction mode — shared reference with M5 mode switcher.
         self.mode: str = "MOUSE"
 
-        # ---- Feature A: Velocity Scroll --------------------------------
-        # Sensitivity is overridden by M4 context profile each 500 ms.
-        self._scroll_sensitivity: float = config.SCROLL_SENSITIVITY
+        # ---- Feature A: Scroll (finger-count on left hand) --------
+        self._last_scroll_time: float  = 0.0
+        self._scroll_direction: str | None = None   # "up" or "down", latched
 
-        # ---- Feature B: Pinch-to-Zoom (single-hand thumb-index) --------
-        self._prev_zoom_dist: float | None = None
-        self._last_zoom_time: float        = 0.0
+        # ---- Feature B: Zoom (finger-count on right hand) ----------
+        self._last_zoom_time: float   = 0.0
 
         # ---- Feature C: Air Whiteboard ---------------------------------
         h, w = frame_shape
@@ -118,21 +117,23 @@ class GestureModule:
 
         if primary or secondary:
             if self.mode == "MOUSE":
-                m1_gesture = state.get("gesture", "NONE")
-                if m1_gesture == "SCROLLING" and primary:
-                    gesture = self._velocity_scroll(state)
-                elif m1_gesture == "OPEN_PALM" and primary:
-                    gesture = self._media_control(primary, state, w, h)
+                # Scroll uses LEFT hand finger count (independent of right hand)
+                if secondary is not None:
+                    scroll_g = self._finger_scroll(secondary)
+                    if scroll_g != "NONE":
+                        gesture = scroll_g
 
             elif self.mode == "WHITEBOARD" and primary:
                 gesture = self._whiteboard(primary, state, w, h)
 
             elif self.mode == "ZOOM" and primary:
-                gesture = self._pinch_zoom(primary, state, w, h)
+                gesture = self._finger_zoom(primary)
+
+            elif self.mode == "MEDIA" and primary:
+                gesture = self._media_control(primary, state, w, h)
         else:
             # No hand — reset continuity state.
-            self._prev_draw_pt    = None
-            self._prev_zoom_dist  = None
+            self._prev_draw_pt     = None
             self._prev_media_wrist = None
 
         # Blend the drawing canvas over the frame in every mode so drawings
@@ -148,88 +149,89 @@ class GestureModule:
     # Feature A: Velocity-Proportional Scroll
     # ------------------------------------------------------------------
 
-    def _velocity_scroll(self, state: dict) -> str:
+    def _finger_scroll(self, secondary_landmarks) -> str:
         """
-        Map wrist vertical velocity to a scroll amount.
+        Scroll using finger count on the LEFT hand.
 
-        Triggered when M1 detects scroll posture (index+middle up, others
-        down) on the primary (right) hand.  Consumes the rolling wrist-y
-        buffer populated by M1.
+        1 finger up (index)          → scroll UP
+        2+ fingers up (index+middle) → scroll DOWN
+        0 fingers up or hand removed → reset direction
+
+        Uses STICKY direction: once scroll starts in a direction, it
+        stays that way even if the middle finger flickers. Direction
+        only changes when all fingers are put down (reset).
         """
-        buf = state.get("wrist_y_buffer")
-        if buf is None or len(buf) < 2:
+        fingers = count_fingers_up(secondary_landmarks)
+        n_up = sum(fingers[1:])   # non-thumb fingers
+
+        # No fingers up → reset direction latch
+        if n_up == 0:
+            self._scroll_direction = None
             return "NONE"
 
-        # Per-frame delta-y in frame pixels.
-        dy = float(buf[-1] - buf[-2])
+        # At least one non-thumb finger is up — latch direction
+        if self._scroll_direction is None:
+            if n_up == 1:
+                self._scroll_direction = "up"
+            else:
+                self._scroll_direction = "down"
 
-        if abs(dy) < config.VELOCITY_SCROLL_DEADZONE:
+        now = time.time()
+        if now - self._last_scroll_time < config.SCROLL_COOLDOWN_INTERVAL:
             return "NONE"
 
-        # Map dy to scroll units; context profile sensitivity overrides default.
-        scroll_amount = int(dy * self._scroll_sensitivity)
-        if scroll_amount == 0:
-            return "NONE"
-
-        # In pyautogui: positive = scroll up, negative = scroll down.
-        # dy > 0 means wrist moved down (y increases downward) → scroll down.
-        try:
-            pyautogui.scroll(-scroll_amount)
-        except pyautogui.FailSafeException:
-            pass
-
-        return "SCROLL_UP" if scroll_amount < 0 else "SCROLL_DOWN"
+        if self._scroll_direction == "up":
+            try:
+                pyautogui.scroll(config.SCROLL_AMOUNT)
+            except pyautogui.FailSafeException:
+                pass
+            self._last_scroll_time = now
+            return "SCROLL_UP"
+        else:
+            try:
+                pyautogui.scroll(-config.SCROLL_AMOUNT)
+            except pyautogui.FailSafeException:
+                pass
+            self._last_scroll_time = now
+            return "SCROLL_DOWN"
 
     def set_scroll_sensitivity(self, value: float) -> None:
         """M4 context-aware profiles call this to adjust scroll speed."""
         self._scroll_sensitivity = value
 
     # ------------------------------------------------------------------
-    # Feature B: Pinch-to-Zoom
+    # Feature B: Zoom (finger-count on right hand)
     # ------------------------------------------------------------------
 
-    def _pinch_zoom(self, landmarks, state: dict, frame_w: int, frame_h: int) -> str:
+    def _finger_zoom(self, landmarks) -> str:
         """
-        Single-hand pinch-to-zoom via Ctrl+Plus / Ctrl+Minus.
+        Zoom using hand pose on the RIGHT hand (ZOOM mode only).
 
-        Algorithm
-        ---------
-        1. On the primary (right) hand, compute the distance between
-           thumb tip and index finger tip.
-        2. Compare with the previous frame's distance.
-           Distance increased by ZOOM_THRESHOLD → Ctrl+Plus  (zoom in)
-           Distance decreased by ZOOM_THRESHOLD → Ctrl+Minus (zoom out)
-        3. Enforce a per-action cooldown to prevent rapid repeated triggers.
+        Open palm (all 5 fingers)  → zoom IN  (Ctrl++)
+        Fist (0 non-thumb fingers) → zoom OUT (Ctrl+-)
+        Any other pose             → no zoom
+
+        Open palm and fist are the most reliable MediaPipe detections,
+        avoiding the middle-finger flicker issue that broke index-only.
         """
-        if landmarks is None:
-            self._prev_zoom_dist = None
-            return "NONE"
-
-        thumb_px = landmark_to_pixel(landmarks[config.LM_THUMB_TIP],  frame_w, frame_h)
-        index_px = landmark_to_pixel(landmarks[config.LM_INDEX_TIP],  frame_w, frame_h)
-
-        current_dist = euclidean_distance(thumb_px, index_px)
-
-        if self._prev_zoom_dist is None:
-            self._prev_zoom_dist = current_dist
-            return "NONE"
-
-        delta                = current_dist - self._prev_zoom_dist
-        self._prev_zoom_dist = current_dist
+        fingers = count_fingers_up(landmarks)
+        n_up = sum(fingers[1:])   # non-thumb fingers
 
         now = time.time()
         if now - self._last_zoom_time < config.ZOOM_COOLDOWN:
             return "NONE"
 
-        if delta > config.ZOOM_THRESHOLD:
+        # Open palm (3+ non-thumb fingers up) → zoom in
+        if n_up >= 3:
             try:
-                pyautogui.hotkey("ctrl", "+")
+                pyautogui.hotkey("ctrl", "=")
             except pyautogui.FailSafeException:
                 pass
             self._last_zoom_time = now
             return "ZOOM_IN"
 
-        if delta < -config.ZOOM_THRESHOLD:
+        # Fist (0 non-thumb fingers up) → zoom out
+        if n_up == 0:
             try:
                 pyautogui.hotkey("ctrl", "-")
             except pyautogui.FailSafeException:
@@ -246,16 +248,29 @@ class GestureModule:
     def _media_control(self, landmarks, state: dict,
                        frame_w: int, frame_h: int) -> str:
         """
-        Open-palm gesture for volume and brightness control.
+        Volume and brightness control in MEDIA mode.
 
-        Activated when M1 detects all 5 fingers up (OPEN_PALM) in MOUSE mode.
-        Tracks wrist position delta:
-            • Wrist moves left  → volume down
-            • Wrist moves right → volume up
-            • Wrist moves up    → brightness up
-            • Wrist moves down  → brightness down
+        Gesture mapping (distinct gestures to avoid conflict):
+            Index finger only up  → VOLUME control (wrist X movement)
+                Move hand right → volume up
+                Move hand left  → volume down
+            Index + Middle up     → BRIGHTNESS control (wrist Y movement)
+                Move hand up    → brightness up
+                Move hand down  → brightness down
         """
         if landmarks is None:
+            self._prev_media_wrist = None
+            return "NONE"
+
+        fingers = count_fingers_up(landmarks)
+        # Index only up  → volume
+        is_volume_pose     = (fingers[1] and not fingers[2]
+                              and not fingers[3] and not fingers[4])
+        # Index + Middle up → brightness
+        is_brightness_pose = (fingers[1] and fingers[2]
+                              and not fingers[3] and not fingers[4])
+
+        if not is_volume_pose and not is_brightness_pose:
             self._prev_media_wrist = None
             return "NONE"
 
@@ -276,8 +291,8 @@ class GestureModule:
 
         gesture = "NONE"
 
-        # --- Volume (horizontal wrist movement) -----------------------
-        if abs(dx) > config.VOLUME_DEADZONE:
+        # --- Volume: index-only + wrist horizontal --------------------
+        if is_volume_pose and abs(dx) > config.VOLUME_DEADZONE:
             try:
                 if dx > 0:
                     for _ in range(config.VOLUME_STEP):
@@ -291,8 +306,8 @@ class GestureModule:
             except Exception:
                 pass
 
-        # --- Brightness (vertical wrist movement) --------------------
-        if abs(dy) > config.BRIGHTNESS_DEADZONE:
+        # --- Brightness: peace-sign + wrist vertical ------------------
+        if is_brightness_pose and abs(dy) > config.BRIGHTNESS_DEADZONE:
             try:
                 import screen_brightness_control as sbc
                 current = sbc.get_brightness(display=0)
@@ -307,9 +322,9 @@ class GestureModule:
                 sbc.set_brightness(new_val, display=0)
                 self._last_media_time = now
             except ImportError:
-                pass   # screen_brightness_control not installed
+                pass
             except Exception:
-                pass   # external-monitor or permission issue
+                pass
 
         return gesture
 
@@ -426,9 +441,8 @@ class GestureModule:
         """
         if mode not in config.MODES:
             return
-        self.mode             = mode
-        self._prev_draw_pt    = None
-        self._prev_zoom_dist  = None
+        self.mode              = mode
+        self._prev_draw_pt     = None
         self._prev_media_wrist = None
         # The canvas is intentionally NOT cleared on mode switch so
         # the user can return to their whiteboard drawing.

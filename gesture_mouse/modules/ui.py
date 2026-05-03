@@ -41,11 +41,13 @@ import config
 # Gesture guide text shown in the bottom bar per mode
 # ---------------------------------------------------------------------------
 _GESTURE_GUIDE: dict[str, list[str]] = {
-    "MOUSE":      ["Click:Thumb+Index | RightClick:Thumb+Middle | DoubleClick:Thumb+Ring",
-                   "Scroll:Index+Middle up | Drag:Fist | Volume/Brightness:Open Palm"],
+    "MOUSE":      ["Click:Thumb+Index | RClick:Thumb+Mid | DblClk:Thumb+Ring | Drag:Fist",
+                   "Scroll: LEFT hand — 1 finger=UP, 2 fingers=DOWN"],
     "WHITEBOARD": ["Draw: Index Up | Erase: Fist | Color: Thumb+Pinky pinch"],
-    "ZOOM":       ["Spread Thumb+Index = Zoom In | Pinch Thumb+Index = Zoom Out"],
+    "ZOOM":       ["Open palm = Zoom In | Fist = Zoom Out"],
     "VOICE":      ["Say: 'open browser' | 'take screenshot' | 'whiteboard on/off'"],
+    "MEDIA":      ["Volume: Index only up, move hand Left/Right",
+                   "Brightness: Index+Middle up, move hand Up/Down"],
 }
 
 

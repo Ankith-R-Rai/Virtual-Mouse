@@ -205,61 +205,45 @@ class CoreGestureEngine:
         state["primary_landmarks"]   = primary
         state["secondary_landmarks"] = secondary
 
-        # ---- Gesture detection (posture-first) -----------------------
-        # Detect hand posture BEFORE cursor movement so drag can use
-        # wrist tracking instead of index-tip tracking.
+        # ---- Gesture detection ----------------------------------------
         gesture = "NONE"
         use_wrist_for_cursor = False    # True during drag
 
         if mode == "MOUSE":
             fingers = count_fingers_up(primary)
-            is_scroll_posture = (fingers[1] and fingers[2]
-                                 and not fingers[3] and not fingers[4])
-            is_open_palm = all(fingers)
-            is_fist_now  = is_fist(primary)
+            n_fingers_up = sum(fingers[1:])   # non-thumb fingers
 
-            # --- Priority 1: Scroll (index+middle up, others down) ----
-            if is_scroll_posture:
-                wrist_y_px = int(primary[config.LM_WRIST].y * h)
-                self.wrist_y_buffer.append(wrist_y_px)
-                gesture = "SCROLLING"
-                if self._is_dragging:
-                    try: pyautogui.mouseUp()
-                    except pyautogui.FailSafeException: pass
-                    self._is_dragging = False
-
-            # --- Priority 2: Open palm (all 5 up) → vol/brightness ---
-            elif is_open_palm:
-                gesture = "OPEN_PALM"
-                self.wrist_y_buffer.clear()
-                if self._is_dragging:
-                    try: pyautogui.mouseUp()
-                    except pyautogui.FailSafeException: pass
-                    self._is_dragging = False
-
-            # --- Priority 3: Fist → Drag ------------------------------
-            elif is_fist_now:
-                self.wrist_y_buffer.clear()
-                now = time.time()
-                if not self._is_dragging and (now - self._last_drop_time > config.DRAG_COOLDOWN):
-                    try: pyautogui.mouseDown()
-                    except pyautogui.FailSafeException: pass
-                    self._is_dragging = True
-                    gesture = "DRAG_START"
-                elif self._is_dragging:
-                    gesture = "DRAGGING"
-                    use_wrist_for_cursor = True
-
-            # --- Priority 4: Clicks (left / right / double) ----------
-            else:
-                self.wrist_y_buffer.clear()
-                if self._is_dragging:
+            # --- Drag with hysteresis -----------------------------------
+            # Start: strict fist (0 non-thumb fingers up)
+            # Continue: tolerant (up to 2 fingers can flicker up)
+            # Drop: deliberate open hand (3+ non-thumb fingers up)
+            if self._is_dragging:
+                if n_fingers_up >= 3:
+                    # Clearly open hand → drop
                     try: pyautogui.mouseUp()
                     except pyautogui.FailSafeException: pass
                     self._is_dragging = False
                     self._last_drop_time = time.time()
                     gesture = "DROP"
                 else:
+                    # Still dragging (tolerates finger flicker)
+                    gesture = "DRAGGING"
+                    use_wrist_for_cursor = True
+
+            elif n_fingers_up == 0:
+                # Strict fist → start drag
+                now = time.time()
+                if now - self._last_drop_time > config.DRAG_COOLDOWN:
+                    try: pyautogui.mouseDown()
+                    except pyautogui.FailSafeException: pass
+                    self._is_dragging = True
+                    gesture = "DRAG_START"
+
+            else:
+                # --- Clicks (only when LEFT hand is NOT visible) ------
+                # Suppress clicks when left hand is up to prevent
+                # accidental clicks during scroll gestures.
+                if secondary is None:
                     gesture = self._detect_click(primary, w, h, mode)
 
         # ---- Cursor movement -----------------------------------------
@@ -309,62 +293,60 @@ class CoreGestureEngine:
 
     def _detect_click(self, landmarks, frame_w: int, frame_h: int, mode: str = "MOUSE") -> str:
         """
-        Detect left-click and right-click via pinch distances.
+        Detect left-click, right-click, and double-click via pinch distances.
 
-        Left click  : thumb tip (LM4) ↔ index tip (LM8)  < LEFT_CLICK_THRESHOLD px
-        Right click : index tip (LM8) ↔ middle tip (LM12) < RIGHT_CLICK_THRESHOLD px
-
-        A per-gesture cooldown of CLICK_COOLDOWN seconds prevents repeated firing
-        while fingers remain close together.
+        Uses 'smallest distance wins' — only the closest pinch fires.
+        This prevents thumb+ring (double-click) from being blocked by
+        thumb+index (left-click) when the thumb passes nearby.
         """
         now = time.time()
-
 
         # Denormalize landmarks to frame pixel space for distance measurement.
         thumb_px  = landmark_to_pixel(landmarks[config.LM_THUMB_TIP],  frame_w, frame_h)
         index_px  = landmark_to_pixel(landmarks[config.LM_INDEX_TIP],  frame_w, frame_h)
         middle_px = landmark_to_pixel(landmarks[config.LM_MIDDLE_TIP], frame_w, frame_h)
-
         ring_px   = landmark_to_pixel(landmarks[config.LM_RING_TIP],   frame_w, frame_h)
 
         left_dist   = euclidean_distance(thumb_px,  index_px)
         right_dist  = euclidean_distance(thumb_px, middle_px)
         double_dist = euclidean_distance(thumb_px, ring_px)
 
-        # Left click
+        # Build list of eligible gestures (within threshold AND off cooldown).
+        candidates = []
         if (left_dist < config.LEFT_CLICK_THRESHOLD and
                 now - self._last_left_click > config.CLICK_COOLDOWN):
-            if mode == "MOUSE":
-                try:
-                    pyautogui.click()
-                except pyautogui.FailSafeException:
-                    pass
-            self._last_left_click = now
-            return "LEFT_CLICK"
+            candidates.append(("LEFT_CLICK", left_dist))
 
-        # Right click (only if left click did not fire — avoids conflict)
         if (right_dist < config.RIGHT_CLICK_THRESHOLD and
                 now - self._last_right_click > config.CLICK_COOLDOWN):
-            if mode == "MOUSE":
-                try:
-                    pyautogui.rightClick()
-                except pyautogui.FailSafeException:
-                    pass
-            self._last_right_click = now
-            return "RIGHT_CLICK"
+            candidates.append(("RIGHT_CLICK", right_dist))
 
-        # Double-click: thumb tip ↔ ring finger tip
         if (double_dist < config.DOUBLE_CLICK_THRESHOLD and
                 now - self._last_double_click > config.DOUBLE_CLICK_COOLDOWN):
-            if mode == "MOUSE":
-                try:
-                    pyautogui.doubleClick()
-                except pyautogui.FailSafeException:
-                    pass
-            self._last_double_click = now
-            return "DOUBLE_CLICK"
+            candidates.append(("DOUBLE_CLICK", double_dist))
 
-        return "NONE"
+        if not candidates:
+            return "NONE"
+
+        # Fire only the closest pinch (most deliberate gesture).
+        candidates.sort(key=lambda c: c[1])
+        winner = candidates[0][0]
+
+        if mode == "MOUSE":
+            try:
+                if winner == "LEFT_CLICK":
+                    pyautogui.click()
+                    self._last_left_click = now
+                elif winner == "RIGHT_CLICK":
+                    pyautogui.rightClick()
+                    self._last_right_click = now
+                elif winner == "DOUBLE_CLICK":
+                    pyautogui.doubleClick()
+                    self._last_double_click = now
+            except pyautogui.FailSafeException:
+                pass
+
+        return winner
 
     # ------------------------------------------------------------------
     # Basic scroll detection — REMOVED (now handled via posture check

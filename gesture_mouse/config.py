@@ -87,13 +87,15 @@ KALMAN_ENABLED_DEFAULT   = True
 # Velocity-proportional scroll (M3)
 # ---------------------------------------------------------------------------
 VELOCITY_SCROLL_BUFFER_SIZE = 5     # frames kept in rolling wrist-y buffer
-VELOCITY_SCROLL_DEADZONE    = 5     # px delta-y below which scroll is ignored
+VELOCITY_SCROLL_DEADZONE    = 8     # px delta-y below which scroll is ignored
+SCROLL_AMOUNT               = 8     # scroll-wheel clicks per event
+SCROLL_COOLDOWN_INTERVAL    = 0.05  # seconds between repeated scroll events
 
 # ---------------------------------------------------------------------------
 # Pinch-to-zoom (M3) — single-hand thumb-index spread
 # ---------------------------------------------------------------------------
-ZOOM_THRESHOLD = 12     # px change in thumb-index distance to trigger zoom
-ZOOM_COOLDOWN  = 0.10   # seconds
+ZOOM_THRESHOLD = 25     # px cumulative thumb-index distance change to trigger zoom
+ZOOM_COOLDOWN  = 0.30   # seconds between zoom triggers
 
 # ---------------------------------------------------------------------------
 # Drag & Drop (fist gesture in MOUSE mode)
@@ -193,7 +195,7 @@ VOICE_SCROLL_BOOST_FACTOR   = 2.0
 # ---------------------------------------------------------------------------
 # Application modes
 # ---------------------------------------------------------------------------
-MODES = ["MOUSE", "WHITEBOARD", "ZOOM", "VOICE"]
+MODES = ["MOUSE", "WHITEBOARD", "ZOOM", "VOICE", "MEDIA"]
 
 # ---------------------------------------------------------------------------
 # HUD colors (BGR)
@@ -212,4 +214,5 @@ MODE_COLORS = {
     "WHITEBOARD": COLOR_CYAN,
     "ZOOM":       COLOR_YELLOW,
     "VOICE":      COLOR_RED,
+    "MEDIA":      COLOR_BLUE,
 }
