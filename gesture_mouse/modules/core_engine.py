@@ -230,20 +230,20 @@ class CoreGestureEngine:
                     gesture = "DRAGGING"
                     use_wrist_for_cursor = True
 
-            elif n_fingers_up == 0:
-                # Strict fist → start drag
-                now = time.time()
-                if now - self._last_drop_time > config.DRAG_COOLDOWN:
-                    try: pyautogui.mouseDown()
-                    except pyautogui.FailSafeException: pass
-                    self._is_dragging = True
-                    gesture = "DRAG_START"
+            elif secondary is None:
+                if n_fingers_up == 0:
+                    # Strict fist → start drag
+                    now = time.time()
+                    if now - self._last_drop_time > config.DRAG_COOLDOWN:
+                        try: pyautogui.mouseDown()
+                        except pyautogui.FailSafeException: pass
+                        self._is_dragging = True
+                        gesture = "DRAG_START"
 
-            else:
-                # --- Clicks (only when LEFT hand is NOT visible) ------
-                # Suppress clicks when left hand is up to prevent
-                # accidental clicks during scroll gestures.
-                if secondary is None:
+                else:
+                    # --- Clicks (only when LEFT hand is NOT visible) ------
+                    # Suppress clicks when left hand is up to prevent
+                    # accidental clicks during scroll gestures.
                     gesture = self._detect_click(primary, w, h, mode)
 
         # ---- Cursor movement -----------------------------------------

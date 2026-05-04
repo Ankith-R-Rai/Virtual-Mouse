@@ -140,14 +140,14 @@ WHITEBOARD_COLORS = [
 #   special           — string tag consumed by M3/M4 for macro behaviour
 CONTEXT_PROFILES: dict = {
     "browser": {
-        "keywords":           ["chrome", "firefox", "edge", "opera", "brave", "safari"],
-        "scroll_speed":       1.2,
+        "keywords":           ["chrome", "firefox", "edge", "safari", "opera", "brave", "chromium"],
+        "scroll_speed":       2.5,
         "cursor_sensitivity": 1.0,
         "special":            "standard",
     },
     "ide": {
-        "keywords":           ["code", "pycharm", "sublime", "atom", "vim", "notepad++", "spyder"],
-        "scroll_speed":       0.4,
+        "keywords":           ["visual studio code", "vscode", "vs code", "cursor", "pycharm", "intellij", "sublime", "notepad++", "vim", "nvim", "emacs", "code", "atom", "spyder"],
+        "scroll_speed":       0.5,
         "cursor_sensitivity": 0.6,
         "special":            "precise",
     },
@@ -165,7 +165,7 @@ CONTEXT_PROFILES: dict = {
     },
     "default": {
         "keywords":           [],
-        "scroll_speed":       0.8,
+        "scroll_speed":       1.0,
         "cursor_sensitivity": 1.0,
         "special":            "standard",
     },
