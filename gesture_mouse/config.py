@@ -176,21 +176,166 @@ CONTEXT_POLL_INTERVAL = 0.5   # seconds between active-window checks
 # Voice commands (M4)
 # ---------------------------------------------------------------------------
 VOICE_COMMANDS = {
-    "open browser":       "open_browser",
-    "take screenshot":    "screenshot",
-    "enable smooth mode": "toggle_kalman",
-    "disable smooth mode":"toggle_kalman",
-    "whiteboard on":      "whiteboard_on",
-    "whiteboard off":     "whiteboard_off",
-    "scroll up fast":     "scroll_fast_up",
-    "scroll down fast":   "scroll_fast_down",
-    "switch to mouse":    "mode_mouse",
-    "switch to whiteboard": "mode_whiteboard",
-    "switch to zoom":     "mode_zoom",
-    "switch to voice":    "mode_voice",
+    # ---- Mode switching -----------------------------------------------
+    "switch to mouse":      "mode_mouse",
+    "switch to whiteboard":  "mode_whiteboard",
+    "switch to zoom":        "mode_zoom",
+    "switch to voice":       "mode_voice",
+    "switch to media":       "mode_media",
+    "whiteboard on":         "whiteboard_on",
+    "whiteboard off":        "whiteboard_off",
+
+    # ---- Browser / system ---------------------------------------------
+    "open browser":          "open_browser",
+    "take screenshot":       "screenshot",
+
+    # ---- Kalman filter ------------------------------------------------
+    "enable smooth mode":    "toggle_kalman",
+    "disable smooth mode":   "toggle_kalman",
+
+    # ---- Scroll boost -------------------------------------------------
+    "scroll up fast":        "scroll_fast_up",
+    "scroll down fast":      "scroll_fast_down",
+
+    # ---- Scroll (single-fire) -----------------------------------------
+    "scroll up":             "scroll_up",
+    "scroll down":           "scroll_down",
+    "page up":               "page_up",
+    "page down":             "page_down",
+
+    # ---- Volume / brightness ------------------------------------------
+    "volume up":             "volume_up",
+    "increase volume":       "volume_up",
+    "louder":                "volume_up",
+    "volume down":           "volume_down",
+    "decrease volume":       "volume_down",
+    "lower volume":          "volume_down",
+    "mute":                  "mute",
+    "unmute":                "mute",
+    "brightness up":         "brightness_up",
+    "increase brightness":   "brightness_up",
+    "brighter":              "brightness_up",
+    "brightness down":       "brightness_down",
+    "decrease brightness":   "brightness_down",
+    "dimmer":                "brightness_down",
+
+    # ---- Hotkeys ------------------------------------------------------
+    "copy":                  "hotkey_copy",
+    "paste":                 "hotkey_paste",
+    "cut":                   "hotkey_cut",
+    "undo":                  "hotkey_undo",
+    "redo":                  "hotkey_redo",
+    "select all":            "hotkey_select_all",
+    "save":                  "hotkey_save",
+    "new tab":               "hotkey_new_tab",
+    "close tab":             "hotkey_close_tab",
+    "refresh":               "hotkey_refresh",
+    "reload":                "hotkey_refresh",
+    "go back":               "hotkey_browser_back",
+    "go forward":            "hotkey_browser_forward",
+    "zoom in":               "hotkey_zoom_in",
+    "zoom out":              "hotkey_zoom_out",
+    "find":                  "hotkey_find",
+    "print":                 "hotkey_print",
+    "enter":                 "hotkey_enter",
+    "delete":                "hotkey_delete",
+    "new window":            "hotkey_new_window",
+    "close window":          "hotkey_close_window",
+    "switch window":         "hotkey_switch_window",
+    "minimize":              "hotkey_minimize",
+    "maximize":              "hotkey_maximize",
+    "bold":                  "hotkey_bold",
+    "italic":                "hotkey_italic",
+    "underline":             "hotkey_underline",
+
+    # ---- Mouse clicks -------------------------------------------------
+    "click":                 "mouse_left_click",
+    "left click":            "mouse_left_click",
+    "right click":           "mouse_right_click",
+    "double click":          "mouse_double_click",
+
+    # ---- Canvas -------------------------------------------------------
+    "clear canvas":          "canvas_clear",
+    "clear whiteboard":      "canvas_clear",
+    "eraser mode":           "canvas_erase_mode",
+    "pen mode":              "canvas_pen_mode",
+    "save canvas":           "canvas_save",
+    "save drawing":          "canvas_save",
+    "thicker":               "canvas_thick",
+    "thinner":               "canvas_thin",
+    "increase brush":        "canvas_thick",
+    "decrease brush":        "canvas_thin",
 }
+
+# Hotkey map: action suffix -> tuple of keys for pyautogui.hotkey()
+HOTKEY_MAP: dict[str, tuple[str,...]] = {
+    "copy":            ("ctrl", "c"),
+    "paste":           ("ctrl", "v"),
+    "cut":             ("ctrl", "x"),
+    "undo":            ("ctrl", "z"),
+    "redo":            ("ctrl", "y"),
+    "enter":           ("enter",),
+    "select_all":      ("ctrl", "a"),
+    "save":            ("ctrl", "s"),
+    "new_tab":         ("ctrl", "t"),
+    "close_tab":       ("ctrl", "w"),
+    "refresh":         ("f5",),
+    "browser_back":    ("alt", "left"),
+    "browser_forward": ("alt", "right"),
+    "zoom_in":         ("ctrl", "="),
+    "zoom_out":        ("ctrl", "-"),
+    "delete":          ("delete",),
+    "find":            ("ctrl", "f"),
+    "print":           ("ctrl", "p"),
+    "new_window":      ("ctrl", "n"),
+    "close_window":    ("alt", "f4"),
+    "switch_window":   ("alt", "tab"),
+    "minimize":        ("win", "down"),
+    "maximize":        ("win", "up"),
+    "bold":            ("ctrl", "b"),
+    "italic":          ("ctrl", "i"),
+    "underline":       ("ctrl", "u"),
+}
+
+# App aliases for "open <app>" voice command (fuzzy matched)
+APP_ALIASES: dict[str, str] = {
+    "chrome":       "chrome",
+    "firefox":      "firefox",
+    "edge":         "msedge",
+    "notepad":      "notepad",
+    "vscode":       "code",
+    "vs code":      "code",
+    "code":         "code",
+    "pycharm":      "pycharm",
+    "cursor":       "cursor",
+    "terminal":     "cmd",
+    "calculator":   "calc",
+    "explorer":     "explorer",
+    "word":         "winword",
+    "excel":        "excel",
+    "powerpoint":   "powerpnt",
+    "spotify":      "spotify",
+    "discord":      "discord",
+    "slack":        "slack",
+    "vlc":          "vlc",
+    "paint":        "mspaint",
+    "obs":          "obs",
+}
+
+# Colors for "change color to <X>" canvas voice command (BGR)
+VOICE_COLORS: dict[str, tuple[int,int,int]] = {
+    "red":    (0,  0,  220), "green":  (0, 200,  0), "blue":  (220,  0,  0),
+    "yellow": (0, 230, 230), "white":  (255,255,255), "black": (0,    0,  0),
+    "orange": (0, 165, 255), "purple": (160,  0, 160), "pink": (200,150,255),
+    "cyan":   (230,230,  0),
+}
+
+# Shapes for "draw a <X>" canvas voice command
+VOICE_SHAPES = ["circle", "rectangle", "triangle", "line", "star"]
+
 VOICE_SCROLL_BOOST_DURATION = 3.0   # seconds that "scroll fast" boost lasts
 VOICE_SCROLL_BOOST_FACTOR   = 2.0
+VOICE_FUZZY_THRESHOLD       = 72    # fuzzy match score threshold
 
 # ---------------------------------------------------------------------------
 # Application modes

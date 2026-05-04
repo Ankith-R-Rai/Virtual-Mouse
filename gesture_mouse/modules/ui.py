@@ -45,7 +45,8 @@ _GESTURE_GUIDE: dict[str, list[str]] = {
                    "Scroll: LEFT hand — 1 finger=UP, 2 fingers=DOWN"],
     "WHITEBOARD": ["Draw: Index Up | Erase: Fist | Color: Thumb+Pinky pinch"],
     "ZOOM":       ["Open palm = Zoom In | Fist = Zoom Out"],
-    "VOICE":      ["Say: 'open browser' | 'take screenshot' | 'whiteboard on/off'"],
+    "VOICE":      ["Say: 'open <app>' | 'search <query>' | 'copy/paste/undo' | 'volume up/down'",
+                   "'screenshot' | 'type <text>' | 'switch to <mode>' | See VOICE_COMMANDS.txt"],
     "MEDIA":      ["Volume: Index only up, move hand Left/Right",
                    "Brightness: Index+Middle up, move hand Up/Down"],
 }

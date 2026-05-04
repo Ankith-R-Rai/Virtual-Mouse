@@ -401,6 +401,40 @@ class GestureModule:
         self._canvas[:] = 0
         self._prev_draw_pt = None
 
+    def draw_shape(self, shape_name: str) -> None:
+        """Draw a predefined shape on the canvas center."""
+        h, w = self._canvas.shape[:2]
+        if h == 0 or w == 0:
+            return
+        cx, cy = w // 2, h // 2
+        color = self._draw_color
+        thickness = config.WHITEBOARD_THICKNESS * 2
+
+        if shape_name == "circle":
+            cv2.circle(self._canvas, (cx, cy), min(w, h) // 4, color, thickness)
+        elif shape_name == "rectangle":
+            rw, rh = w // 4, h // 4
+            cv2.rectangle(self._canvas, (cx - rw, cy - rh), (cx + rw, cy + rh), color, thickness)
+        elif shape_name == "triangle":
+            pts = np.array([
+                [cx, cy - h // 4],
+                [cx - w // 4, cy + h // 4],
+                [cx + w // 4, cy + h // 4]
+            ], np.int32)
+            cv2.polylines(self._canvas, [pts.reshape((-1, 1, 2))], True, color, thickness)
+        elif shape_name == "line":
+            cv2.line(self._canvas, (cx - w // 4, cy), (cx + w // 4, cy), color, thickness)
+        elif shape_name == "star":
+            import math
+            pts = []
+            outer_r = min(w, h) // 4
+            inner_r = outer_r // 2
+            for i in range(10):
+                angle = i * math.pi / 5 - math.pi / 2
+                r = outer_r if i % 2 == 0 else inner_r
+                pts.append([int(cx + r * math.cos(angle)), int(cy + r * math.sin(angle))])
+            cv2.polylines(self._canvas, [np.array(pts, np.int32).reshape((-1, 1, 2))], True, color, thickness)
+
     def _apply_canvas(self, frame: np.ndarray) -> np.ndarray:
         """
         Blend the drawing canvas over the webcam frame.

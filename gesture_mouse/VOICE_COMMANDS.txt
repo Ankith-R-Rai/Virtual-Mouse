@@ -1,0 +1,198 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║              GESTURE & VOICE CONTROLLED VIRTUAL MOUSE                    ║
+║                       VOICE COMMANDS REFERENCE                           ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+
+══════════════════════════════════════════════════════════════════════════
+  MODE SWITCHING
+══════════════════════════════════════════════════════════════════════════
+
+  "switch to mouse"          → Switch to MOUSE mode
+  "switch to whiteboard"     → Switch to WHITEBOARD mode
+  "switch to zoom"           → Switch to ZOOM mode
+  "switch to voice"          → Switch to VOICE mode
+  "switch to media"          → Switch to MEDIA mode
+  "whiteboard on"            → Switch to WHITEBOARD mode
+  "whiteboard off"           → Switch back to MOUSE mode
+
+
+══════════════════════════════════════════════════════════════════════════
+  APP LAUNCHING  (fuzzy matched — say the closest name)
+══════════════════════════════════════════════════════════════════════════
+
+  "open chrome"              → Launch Google Chrome
+  "open firefox"             → Launch Firefox
+  "open edge"                → Launch Microsoft Edge
+  "open notepad"             → Launch Notepad
+  "open vscode" / "open code"→ Launch VS Code
+  "open pycharm"             → Launch PyCharm
+  "open terminal"            → Launch Command Prompt
+  "open calculator"          → Launch Calculator
+  "open explorer"            → Launch File Explorer
+  "open word"                → Launch Microsoft Word
+  "open excel"               → Launch Microsoft Excel
+  "open powerpoint"          → Launch PowerPoint
+  "open spotify"             → Launch Spotify
+  "open discord"             → Launch Discord
+  "open vlc"                 → Launch VLC Media Player
+  "open paint"               → Launch MS Paint
+  "open obs"                 → Launch OBS Studio
+
+  NOTE: App names are fuzzy-matched. Saying "launch chrome" or
+        "start spotify" will also work.
+
+
+══════════════════════════════════════════════════════════════════════════
+  WEB SEARCH & NAVIGATION
+══════════════════════════════════════════════════════════════════════════
+
+  "search for <query>"       → Google search for <query>
+  "google <query>"           → Google search for <query>
+  "look up <query>"          → Google search for <query>
+  "go to <website>"          → Navigate to <website> in browser
+  "navigate to <website>"    → Navigate to <website> in browser
+  "open browser"             → Open Google homepage
+
+
+══════════════════════════════════════════════════════════════════════════
+  KEYBOARD HOTKEYS
+══════════════════════════════════════════════════════════════════════════
+
+  "copy"                     → Ctrl+C
+  "paste"                    → Ctrl+V
+  "cut"                      → Ctrl+X
+  "undo"                     → Ctrl+Z
+  "redo"                     → Ctrl+Y
+  "enter"                    → Press Enter
+  "delete"                   → Press Delete
+  "select all"               → Ctrl+A
+  "save"                     → Ctrl+S
+  "find"                     → Ctrl+F
+  "print"                    → Ctrl+P
+  "bold"                     → Ctrl+B
+  "italic"                   → Ctrl+I
+  "underline"                → Ctrl+U
+
+
+══════════════════════════════════════════════════════════════════════════
+  BROWSER CONTROLS
+══════════════════════════════════════════════════════════════════════════
+
+  "new tab"                  → Ctrl+T
+  "close tab"                → Ctrl+W
+  "refresh" / "reload"       → F5
+  "go back"                  → Alt+Left (browser back)
+  "go forward"               → Alt+Right (browser forward)
+  "zoom in"                  → Ctrl+= (zoom in)
+  "zoom out"                 → Ctrl+- (zoom out)
+
+
+══════════════════════════════════════════════════════════════════════════
+  WINDOW MANAGEMENT
+══════════════════════════════════════════════════════════════════════════
+
+  "new window"               → Ctrl+N
+  "close window"             → Alt+F4
+  "switch window"            → Alt+Tab
+  "minimize"                 → Win+Down
+  "maximize"                 → Win+Up
+
+
+══════════════════════════════════════════════════════════════════════════
+  MOUSE CLICKS
+══════════════════════════════════════════════════════════════════════════
+
+  "click" / "left click"     → Left mouse click at current position
+  "right click"              → Right mouse click at current position
+  "double click"             → Double-click at current position
+
+
+══════════════════════════════════════════════════════════════════════════
+  TYPING
+══════════════════════════════════════════════════════════════════════════
+
+  "type <text>"              → Types <text> at current cursor position
+  "write <text>"             → Types <text> at current cursor position
+
+
+══════════════════════════════════════════════════════════════════════════
+  SCROLLING
+══════════════════════════════════════════════════════════════════════════
+
+  "scroll up"                → Scroll up continuously for 4 seconds
+  "scroll down"              → Scroll down continuously for 4 seconds
+  "page up"                  → Scroll up (large jump)
+  "page down"                → Scroll down (large jump)
+  "scroll up fast"           → Boost scroll speed for 3 seconds
+  "scroll down fast"         → Boost scroll speed for 3 seconds
+
+
+══════════════════════════════════════════════════════════════════════════
+  VOLUME & BRIGHTNESS
+══════════════════════════════════════════════════════════════════════════
+
+  "volume up" / "louder"     → Increase system volume
+  "volume down" / "quieter"  → Decrease system volume
+  "mute" / "unmute"          → Toggle system mute
+
+  "brightness up" / "brighter"   → Increase screen brightness +10%
+  "brightness down" / "dimmer"   → Decrease screen brightness -10%
+
+
+══════════════════════════════════════════════════════════════════════════
+  WHITEBOARD / CANVAS
+══════════════════════════════════════════════════════════════════════════
+
+  "open whiteboard"          → Switch to WHITEBOARD mode
+  "close whiteboard"         → Switch back to MOUSE mode
+  "clear canvas"             → Erase all drawings
+  "clear whiteboard"         → Erase all drawings
+  "save canvas"              → Save drawing as PNG file
+  "save drawing"             → Save drawing as PNG file
+  "eraser mode"              → Switch to eraser
+  "pen mode"                 → Switch to pen/draw
+  "thicker" / "increase brush" → Make brush thicker
+  "thinner" / "decrease brush" → Make brush thinner
+
+  "change color to red"      → Change draw color to red
+  "change color to blue"     → Change draw color to blue
+  "change color to green"    → Change draw color to green
+  "change color to yellow"   → Change draw color to yellow
+  "change color to white"    → Change draw color to white
+  "change color to black"    → Change draw color to black
+  "change color to orange"   → Change draw color to orange
+  "change color to purple"   → Change draw color to purple
+  "change color to pink"     → Change draw color to pink
+  "change color to cyan"     → Change draw color to cyan
+
+  "draw a circle"            → Draw a circle shape
+  "draw a rectangle"         → Draw a rectangle shape
+  "draw a triangle"          → Draw a triangle shape
+  "draw a line"              → Draw a line
+  "draw a star"              → Draw a star shape
+
+
+══════════════════════════════════════════════════════════════════════════
+  SYSTEM
+══════════════════════════════════════════════════════════════════════════
+
+  "take screenshot"          → Save a screenshot as PNG
+  "enable smooth mode"       → Toggle Kalman tremor filter ON
+  "disable smooth mode"      → Toggle Kalman tremor filter OFF
+
+
+══════════════════════════════════════════════════════════════════════════
+  NOTES
+══════════════════════════════════════════════════════════════════════════
+
+  • All commands use FUZZY MATCHING — you don't have to say them
+    exactly. Close enough works! (threshold: 72% similarity)
+  • Two-pass matching: first token_sort_ratio (handles word reordering),
+    then partial_ratio (handles substrings/extra words)
+  • App names are separately fuzzy-matched (threshold: 75%)
+  • Dynamic commands (search, type, open, draw, color) use regex
+    patterns and are checked before the fuzzy dictionary match
+  • Voice recognition requires an internet connection (Google Speech API)
+  • If offline, falls back to CMU Sphinx (less accurate)
+  • Total commands available: 72+ (including all phrase variations)
